@@ -194,12 +194,13 @@ export default function App() {
             onOpenContacts={() => setCurrentScreen('CONTACTS')}
           />
         )}
-        {currentScreen === 'ACTIVE' && <ActiveEventScreen onAction={handleAction} decision={decision} />}
+        {currentScreen === 'ACTIVE' && <ActiveEventScreen onAction={handleAction} decision={decision} contacts={contacts} />}
         {currentScreen === 'SHARE_LOC' && <ShareLocationScreen onAction={handleAction} contacts={contacts} />}
         {currentScreen === 'HELP_NEARBY' && (
           <HelpNearbyScreen
             stations={stations}
             locationStatus={locationStatus}
+            userPosition={userPosition}
             onRefresh={() => {
               if (!navigator.geolocation) {
                 setLocationStatus('GPS não disponível no navegador.');
@@ -237,7 +238,7 @@ export default function App() {
           />
         )}
         {currentScreen === 'SETTINGS' && <SettingsScreen onBack={() => setCurrentScreen('HOME')} />}
-        {currentScreen === 'ENDED' && <EventEndedScreen onAction={handleAction} />}
+        {currentScreen === 'ENDED' && <EventEndedScreen onAction={handleAction} contacts={contacts} />}
       </main>
 
       {/* Bottom Navigation */}
@@ -411,7 +412,17 @@ function ContactScreen({ contacts, onSaveContact, onBack }: { contacts: Contact[
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [relation, setRelation] = useState('');
+  const [search, setSearch] = useState('');
   const [error, setError] = useState('');
+
+  const filteredContacts = contacts.filter(contact => {
+    const normalizedSearch = search.trim().toLowerCase();
+    const numberSearch = search.replace(/\D/g, '');
+    return (
+      contact.name.toLowerCase().includes(normalizedSearch) ||
+      contact.phone.includes(numberSearch)
+    );
+  });
 
   const handleSave = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -448,19 +459,32 @@ function ContactScreen({ contacts, onSaveContact, onBack }: { contacts: Contact[
       </div>
 
       <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-        <h3 className="font-bold text-lg mb-4">Contatos salvos</h3>
-        {contacts.length === 0 ? (
-          <p className="text-slate-500 text-sm">Ainda não há contatos cadastrados.</p>
-        ) : (
-          <div className="space-y-3">
-            {contacts.map(contact => (
-              <div key={contact.id} className="rounded-3xl border border-slate-100 p-4 bg-slate-50">
-                <p className="font-semibold text-slate-900">{contact.name} {contact.relation ? `(${contact.relation})` : ''}</p>
-                <p className="text-sm text-slate-600">{contact.phone}</p>
-              </div>
-            ))}
+        <div className="flex flex-col gap-4">
+          <div>
+            <h3 className="font-bold text-lg mb-4">Contatos salvos</h3>
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full rounded-3xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-violet-300"
+              placeholder="Buscar por nome ou telefone"
+            />
           </div>
-        )}
+
+          {contacts.length === 0 ? (
+            <p className="text-slate-500 text-sm">Ainda não há contatos cadastrados.</p>
+          ) : filteredContacts.length === 0 ? (
+            <p className="text-slate-500 text-sm">Nenhum contato encontrado para sua busca.</p>
+          ) : (
+            <div className="space-y-3">
+              {filteredContacts.map(contact => (
+                <div key={contact.id} className="rounded-3xl border border-slate-100 p-4 bg-slate-50">
+                  <p className="font-semibold text-slate-900">{contact.name} {contact.relation ? `(${contact.relation})` : ''}</p>
+                  <p className="text-sm text-slate-600">{contact.phone}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <form onSubmit={handleSave} className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 space-y-4">
@@ -532,7 +556,8 @@ function SettingsScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
-function ActiveEventScreen({ onAction, decision }: { onAction: (a: ActionType) => void, decision: DecisionResponse | null }) {
+function ActiveEventScreen({ onAction, decision, contacts }: { onAction: (a: ActionType) => void, decision: DecisionResponse | null, contacts: Contact[] }) {
+  const primaryContact = contacts.length ? contacts[0] : null;
   return (
     <div className="px-6 py-4 flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {decision?.modo_silencioso && (
@@ -584,12 +609,17 @@ function ActiveEventScreen({ onAction, decision }: { onAction: (a: ActionType) =
         </button>
         <button 
           onClick={() => {
+            if (!primaryContact) return;
             onAction('abrir_whatsapp');
-            const phone = "5511987654321";
-            const message = "Preciso de ajuda! Acompanhe minha localização em tempo real: https://maps.google.com/?q=-23.5505,-46.6333";
+            const phone = primaryContact.phone.replace(/\D/g, '');
+            const message = `Preciso de ajuda! Estou enviando minha localização para ${primaryContact.name}.`;
             window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
           }}
-          className="bg-white p-4 rounded-2xl flex flex-col items-center justify-center gap-2 shadow-sm active:scale-[0.98] transition-transform"
+          className={cn(
+            "rounded-2xl flex flex-col items-center justify-center gap-2 shadow-sm active:scale-[0.98] transition-transform py-4 px-4",
+            primaryContact ? 'bg-white text-slate-900' : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+          )}
+          disabled={!primaryContact}
         >
           <div className="relative">
             <Send className="w-6 h-6 text-green-600" />
@@ -693,23 +723,40 @@ function ShareLocationScreen({ onAction, contacts }: { onAction: (a: ActionType)
 
       <button 
         onClick={() => {
-          const phone = "5511987654321";
-          const message = "Estou compartilhando minha localização em tempo real via Serene Sentinel para sua segurança. Acompanhe meu trajeto: https://maps.google.com/?q=-23.5505,-46.6333";
+          if (!primaryContact) return;
+          const phone = primaryContact.phone.replace(/\D/g, '');
+          const message = `Estou compartilhando minha localização em tempo real via Serene Sentinel para sua segurança. Acompanhe meu trajeto.`;
           window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
         }}
-        className="bg-violet-700 text-white rounded-2xl p-4 flex items-center justify-center gap-3 font-bold text-lg shadow-lg shadow-violet-700/20 active:scale-[0.98] transition-transform mt-2"
+        className={cn(
+          "rounded-2xl p-4 flex items-center justify-center gap-3 font-bold text-lg shadow-lg shadow-violet-700/20 active:scale-[0.98] transition-transform mt-2",
+          primaryContact ? 'bg-violet-700 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+        )}
+        disabled={!primaryContact}
       >
         <Share2 className="w-5 h-5" />
-        Compartilhar localização via WhatsApp
+        {primaryContact ? 'Compartilhar localização via WhatsApp' : 'Cadastre um contato primeiro'}
       </button>
     </div>
   );
 }
 
-function HelpNearbyScreen({ stations, locationStatus, onRefresh }: { stations: (PoliceStation & { distanceKm: number })[]; locationStatus: string; onRefresh: () => void }) {
+function HelpNearbyScreen({ stations, locationStatus, userPosition, onRefresh }: { stations: (PoliceStation & { distanceKm: number })[]; locationStatus: string; userPosition: { lat: number; lng: number } | null; onRefresh: () => void }) {
   const openMapsLink = (query: string) => {
     window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`, '_blank');
   };
+
+  const mapLocation = userPosition || DEFAULT_LOCATION;
+  const mapUrl = `https://maps.google.com/maps?q=delegacia+de+policia&ll=${mapLocation.lat},${mapLocation.lng}&z=13&output=embed`;
+  const centerText = userPosition
+    ? `Centralizado em sua localização atual: ${userPosition.lat.toFixed(5)}, ${userPosition.lng.toFixed(5)}`
+    : 'Centralizado em localização padrão.';
+
+  const nearbyStations = stations.filter(station => station.distanceKm <= 7);
+  const displayStations = nearbyStations.length > 0 ? nearbyStations : stations.slice(0, 3);
+  const headerText = nearbyStations.length > 0
+    ? 'Delegacias dentro de 7 km'
+    : 'Nenhuma delegacia a menos de 7 km. Mostrando as mais próximas';
 
   return (
     <div className="px-6 py-4 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -727,6 +774,25 @@ function HelpNearbyScreen({ stations, locationStatus, onRefresh }: { stations: (
       </div>
 
       <div className="text-slate-500 text-sm">{locationStatus}</div>
+      <div className="text-slate-500 text-sm mb-2">{centerText}</div>
+
+      <div className="bg-slate-200 h-64 rounded-3xl relative overflow-hidden flex items-center justify-center -mx-2 shadow-inner">
+        <iframe
+          width="100%"
+          height="100%"
+          style={{ border: 0 }}
+          loading="lazy"
+          allowFullScreen
+          referrerPolicy="no-referrer-when-downgrade"
+          src={mapUrl}
+        />
+        <button
+          onClick={() => openMapsLink(`delegacia de policia near ${mapLocation.lat},${mapLocation.lng}`)}
+          className="absolute bottom-4 right-4 w-12 h-12 bg-white rounded-2xl shadow-lg flex items-center justify-center text-violet-700 z-10 hover:bg-slate-50"
+        >
+          <Navigation className="w-5 h-5" />
+        </button>
+      </div>
 
       <div className="flex flex-col gap-4">
         {stations.length === 0 ? (
@@ -734,42 +800,45 @@ function HelpNearbyScreen({ stations, locationStatus, onRefresh }: { stations: (
             Carregando delegacias próximas...
           </div>
         ) : (
-          stations.slice(0, 3).map(station => (
-            <div key={station.id} className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-              <div className="flex justify-between items-start mb-4 gap-3">
-                <div className="flex gap-3">
-                  <div className="w-12 h-12 bg-violet-100 rounded-2xl flex items-center justify-center text-violet-700 shrink-0">
-                    <Shield className="w-6 h-6" />
+          <>
+            <div className="text-slate-500 text-sm mb-3">{headerText}</div>
+            {displayStations.map(station => (
+              <div key={station.id} className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
+                <div className="flex justify-between items-start mb-4 gap-3">
+                  <div className="flex gap-3">
+                    <div className="w-12 h-12 bg-violet-100 rounded-2xl flex items-center justify-center text-violet-700 shrink-0">
+                      <Shield className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg leading-tight">{station.name}</h3>
+                      <p className="text-slate-500 text-sm">{formatDistance(station.distanceKm)}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-bold text-lg leading-tight">{station.name}</h3>
-                    <p className="text-slate-500 text-sm">{formatDistance(station.distanceKm)}</p>
+                  <div className={cn("flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold", station.openNow ? 'bg-violet-50 text-violet-700' : 'bg-slate-100 text-slate-500')}>
+                    <div className={cn('w-1.5 h-1.5 rounded-full', station.openNow ? 'bg-violet-600' : 'bg-slate-400')} />
+                    {station.openNow ? 'Aberto' : 'Fechado'}
                   </div>
                 </div>
-                <div className={cn("flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold", station.openNow ? 'bg-violet-50 text-violet-700' : 'bg-slate-100 text-slate-500')}>
-                  <div className={cn('w-1.5 h-1.5 rounded-full', station.openNow ? 'bg-violet-600' : 'bg-slate-400')} />
-                  {station.openNow ? 'Aberto' : 'Fechado'}
+                <p className="text-slate-700 font-medium mb-1">{station.address}</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => openMapsLink(`${station.name} ${station.address}`)}
+                    className="bg-slate-100 text-slate-900 rounded-xl py-3 flex items-center justify-center gap-2 text-sm font-semibold active:scale-[0.98] transition-transform"
+                  >
+                    <MapIcon className="w-4 h-4" />
+                    Abrir no Maps
+                  </button>
+                  <button
+                    onClick={() => openMapsLink(`${station.name} ${station.address}`)}
+                    className="bg-violet-700 text-white rounded-xl py-3 flex items-center justify-center gap-2 text-sm font-semibold shadow-md shadow-violet-700/20 active:scale-[0.98] transition-transform"
+                  >
+                    <Navigation className="w-4 h-4" />
+                    Traçar rota
+                  </button>
                 </div>
               </div>
-              <p className="text-slate-700 font-medium mb-1">{station.address}</p>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => openMapsLink(`${station.name} ${station.address}`)}
-                  className="bg-slate-100 text-slate-900 rounded-xl py-3 flex items-center justify-center gap-2 text-sm font-semibold active:scale-[0.98] transition-transform"
-                >
-                  <MapIcon className="w-4 h-4" />
-                  Abrir no Maps
-                </button>
-                <button
-                  onClick={() => openMapsLink(`${station.name} ${station.address}`)}
-                  className="bg-violet-700 text-white rounded-xl py-3 flex items-center justify-center gap-2 text-sm font-semibold shadow-md shadow-violet-700/20 active:scale-[0.98] transition-transform"
-                >
-                  <Navigation className="w-4 h-4" />
-                  Traçar rota
-                </button>
-              </div>
-            </div>
-          ))
+            ))}
+          </>
         )}
       </div>
 
@@ -784,7 +853,8 @@ function HelpNearbyScreen({ stations, locationStatus, onRefresh }: { stations: (
   );
 }
 
-function EventEndedScreen({ onAction }: { onAction: (a: ActionType) => void }) {
+function EventEndedScreen({ onAction, contacts }: { onAction: (a: ActionType) => void; contacts: Contact[] }) {
+  const primaryContact = contacts.length ? contacts[0] : null;
   return (
     <div className="px-6 py-4 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="h-40 rounded-3xl overflow-hidden -mx-2 relative">
@@ -840,14 +910,19 @@ function EventEndedScreen({ onAction }: { onAction: (a: ActionType) => void }) {
         </button>
         <button 
           onClick={() => {
-            const phone = "5511987654321";
-            const message = "Cheguei em segurança. O evento foi encerrado no Serene Sentinel.";
+            if (!primaryContact) return;
+            const phone = primaryContact.phone.replace(/\D/g, '');
+            const message = `Cheguei em segurança. O evento foi encerrado no Serene Sentinel.`;
             window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
           }}
-          className="bg-slate-200 text-slate-900 rounded-2xl p-4 flex items-center justify-center gap-3 font-bold text-lg active:scale-[0.98] transition-transform"
+          className={cn(
+            "rounded-2xl p-4 flex items-center justify-center gap-3 font-bold text-lg active:scale-[0.98] transition-transform",
+            primaryContact ? 'bg-slate-200 text-slate-900' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+          )}
+          disabled={!primaryContact}
         >
           <Share2 className="w-5 h-5" />
-          Compartilhar com contato
+          {primaryContact ? 'Compartilhar com contato' : 'Cadastre um contato primeiro'}
         </button>
         <button className="bg-white border border-slate-200 text-slate-700 rounded-2xl p-4 flex items-center justify-center gap-3 font-bold text-lg active:scale-[0.98] transition-transform">
           <MapIcon className="w-5 h-5" />

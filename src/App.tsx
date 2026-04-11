@@ -8,16 +8,91 @@ import {
 import { processAction, ActionType, AppContext, DecisionResponse } from './lib/decisionEngine';
 import { cn } from './lib/utils';
 
-type ScreenState = 'HOME' | 'ACTIVE' | 'SHARE_LOC' | 'HELP_NEARBY' | 'ENDED';
+type ScreenState = 'HOME' | 'ACTIVE' | 'SHARE_LOC' | 'HELP_NEARBY' | 'CONTACTS' | 'SETTINGS' | 'ENDED';
+
+type Contact = {
+  id: string;
+  name: string;
+  phone: string;
+  relation?: string;
+};
+
+type PoliceStation = {
+  id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  openNow: boolean;
+};
+
+const POLICE_STATIONS: PoliceStation[] = [
+  {
+    id: 'dp-campo-belo',
+    name: '27ª Delegacia de Polícia - Campo Belo',
+    address: 'Rua Dr. Jesuíno Maciel, 125, Campo Belo, SP',
+    lat: -23.6230,
+    lng: -46.6625,
+    openNow: true,
+  },
+  {
+    id: 'base-pereira',
+    name: 'Base Comunitária PM - Praça Pereira',
+    address: 'Av. Santo Amaro, 4200, Vila Olímpia, SP',
+    lat: -23.6348,
+    lng: -46.6854,
+    openNow: true,
+  },
+  {
+    id: 'dp-pinheiros',
+    name: '10ª Delegacia de Polícia - Pinheiros',
+    address: 'Rua Henrique Schaumann, 470, Pinheiros, SP',
+    lat: -23.5695,
+    lng: -46.6989,
+    openNow: true,
+  },
+  {
+    id: 'delegacia-se',
+    name: '3ª Delegacia de Polícia - Sé',
+    address: 'Praça Antônio Prado, s/n, Sé, SP',
+    lat: -23.5488,
+    lng: -46.6333,
+    openNow: true,
+  },
+];
+
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function formatDistance(distanceKm: number) {
+  return distanceKm < 1
+    ? `${Math.round(distanceKm * 1000)} m`
+    : `${distanceKm.toFixed(1)} km`;
+}
+
+const DEFAULT_LOCATION = { lat: -23.5505, lng: -46.6333 };
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenState>('HOME');
   const [decision, setDecision] = useState<DecisionResponse | null>(null);
-  
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [stations, setStations] = useState<(PoliceStation & { distanceKm: number })[]>([]);
+  const [userPosition, setUserPosition] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationStatus, setLocationStatus] = useState('Buscando localização...');
+
   const [context, setContext] = useState<AppContext>({
     internet_disponivel: true,
     gps_disponivel: true,
-    contatos_configurados: true,
+    contatos_configurados: false,
   });
 
   const handleAction = (action: ActionType) => {
@@ -35,6 +110,61 @@ export default function App() {
       setCurrentScreen('ENDED');
     }
   };
+
+  useEffect(() => {
+    const savedContacts = localStorage.getItem('serene_contacts');
+    if (savedContacts) {
+      try {
+        setContacts(JSON.parse(savedContacts));
+      } catch {
+        setContacts([]);
+      }
+    }
+
+    if (!navigator.geolocation) {
+      setLocationStatus('GPS não disponível no navegador.');
+      setContext(prev => ({ ...prev, gps_disponivel: false }));
+      setStations(
+        POLICE_STATIONS.map(station => ({
+          ...station,
+          distanceKm: haversineDistance(DEFAULT_LOCATION.lat, DEFAULT_LOCATION.lng, station.lat, station.lng),
+        }))
+      );
+    } else {
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
+          setUserPosition(coords);
+          setLocationStatus('Localização atual encontrada.');
+          setContext(prev => ({ ...prev, gps_disponivel: true }));
+          setStations(
+            POLICE_STATIONS.map(station => ({
+              ...station,
+              distanceKm: haversineDistance(coords.lat, coords.lng, station.lat, station.lng),
+            }))
+              .sort((a, b) => a.distanceKm - b.distanceKm)
+          );
+        },
+        () => {
+          setLocationStatus('Permissão de GPS negada. Mostrando localizações padrão.');
+          setContext(prev => ({ ...prev, gps_disponivel: false }));
+          setStations(
+            POLICE_STATIONS.map(station => ({
+              ...station,
+              distanceKm: haversineDistance(DEFAULT_LOCATION.lat, DEFAULT_LOCATION.lng, station.lat, station.lng),
+            }))
+              .sort((a, b) => a.distanceKm - b.distanceKm)
+          );
+        },
+        { timeout: 8000 }
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    setContext(prev => ({ ...prev, contatos_configurados: contacts.length > 0 }));
+    localStorage.setItem('serene_contacts', JSON.stringify(contacts));
+  }, [contacts]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col max-w-md mx-auto shadow-xl overflow-hidden relative">
@@ -57,10 +187,56 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto pb-24">
-        {currentScreen === 'HOME' && <HomeScreen onAction={handleAction} />}
+        {currentScreen === 'HOME' && (
+          <HomeScreen
+            onAction={handleAction}
+            contacts={contacts}
+            onOpenContacts={() => setCurrentScreen('CONTACTS')}
+          />
+        )}
         {currentScreen === 'ACTIVE' && <ActiveEventScreen onAction={handleAction} decision={decision} />}
-        {currentScreen === 'SHARE_LOC' && <ShareLocationScreen onAction={handleAction} />}
-        {currentScreen === 'HELP_NEARBY' && <HelpNearbyScreen onAction={handleAction} />}
+        {currentScreen === 'SHARE_LOC' && <ShareLocationScreen onAction={handleAction} contacts={contacts} />}
+        {currentScreen === 'HELP_NEARBY' && (
+          <HelpNearbyScreen
+            stations={stations}
+            locationStatus={locationStatus}
+            onRefresh={() => {
+              if (!navigator.geolocation) {
+                setLocationStatus('GPS não disponível no navegador.');
+                return;
+              }
+              navigator.geolocation.getCurrentPosition(
+                position => {
+                  const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
+                  setUserPosition(coords);
+                  setLocationStatus('Localização atualizada.');
+                  setStations(
+                    POLICE_STATIONS.map(station => ({
+                      ...station,
+                      distanceKm: haversineDistance(coords.lat, coords.lng, station.lat, station.lng),
+                    }))
+                      .sort((a, b) => a.distanceKm - b.distanceKm)
+                  );
+                },
+                () => {
+                  setLocationStatus('Falha ao atualizar GPS. Mantendo lista atual.');
+                },
+                { timeout: 8000 }
+              );
+            }}
+          />
+        )}
+        {currentScreen === 'CONTACTS' && (
+          <ContactScreen
+            contacts={contacts}
+            onSaveContact={contact => {
+              setContacts(prev => [contact, ...prev]);
+              setCurrentScreen('HOME');
+            }}
+            onBack={() => setCurrentScreen('HOME')}
+          />
+        )}
+        {currentScreen === 'SETTINGS' && <SettingsScreen onBack={() => setCurrentScreen('HOME')} />}
         {currentScreen === 'ENDED' && <EventEndedScreen onAction={handleAction} />}
       </main>
 
@@ -75,14 +251,20 @@ export default function App() {
           </div>
           <span className="text-[10px] font-semibold tracking-wider uppercase">Home</span>
         </button>
-        <button className="flex flex-col items-center gap-1 text-slate-400">
-          <div className="p-2 rounded-xl">
+        <button 
+          onClick={() => setCurrentScreen('CONTACTS')}
+          className={cn("flex flex-col items-center gap-1", currentScreen === 'CONTACTS' ? "text-violet-700" : "text-slate-400")}
+        >
+          <div className={cn("p-2 rounded-xl", currentScreen === 'CONTACTS' && "bg-violet-50")}>
             <Users className="w-6 h-6" />
           </div>
           <span className="text-[10px] font-semibold tracking-wider uppercase">Contacts</span>
         </button>
-        <button className="flex flex-col items-center gap-1 text-slate-400">
-          <div className="p-2 rounded-xl">
+        <button 
+          onClick={() => setCurrentScreen('SETTINGS')}
+          className={cn("flex flex-col items-center gap-1", currentScreen === 'SETTINGS' ? "text-violet-700" : "text-slate-400")}
+        >
+          <div className={cn("p-2 rounded-xl", currentScreen === 'SETTINGS' && "bg-violet-50")}>
             <Settings className="w-6 h-6" />
           </div>
           <span className="text-[10px] font-semibold tracking-wider uppercase">Settings</span>
@@ -92,7 +274,7 @@ export default function App() {
   );
 }
 
-function HomeScreen({ onAction }: { onAction: (a: ActionType) => void }) {
+function HomeScreen({ onAction, contacts, onOpenContacts }: { onAction: (a: ActionType) => void; contacts: Contact[]; onOpenContacts: () => void }) {
   return (
     <div className="px-6 py-4 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-start">
@@ -163,13 +345,29 @@ function HomeScreen({ onAction }: { onAction: (a: ActionType) => void }) {
       <div>
         <div className="flex justify-between items-end mb-4">
           <h3 className="text-xs font-bold text-slate-400 tracking-widest uppercase">Contatos de Confiança</h3>
-          <button className="text-violet-700 text-sm font-semibold">Ver todos</button>
+          <button onClick={onOpenContacts} className="text-violet-700 text-sm font-semibold">Gerenciar</button>
         </div>
         <div className="flex gap-4 overflow-x-auto pb-2 -mx-6 px-6 snap-x">
-          <ContactAvatar name="ANA" image="https://i.pravatar.cc/150?u=ana" active />
-          <ContactAvatar name="CARLOS" image="https://i.pravatar.cc/150?u=carlos" />
-          <ContactAvatar name="JULIA" image="https://i.pravatar.cc/150?u=julia" />
-          <button className="flex flex-col items-center gap-2 snap-start shrink-0">
+          {contacts.length > 0 ? (
+            contacts.slice(0, 4).map((contact, index) => (
+              <div key={contact.id}>
+                <ContactAvatar
+                  name={contact.name}
+                  image={`https://i.pravatar.cc/150?u=${encodeURIComponent(contact.name)}`}
+                  active={index === 0}
+                />
+              </div>
+            ))
+          ) : (
+            <div className="flex items-center justify-center w-full p-6 rounded-3xl bg-white shadow-sm border border-slate-100 text-slate-500">
+              Nenhum contato salvo ainda.
+            </div>
+          )}
+
+          <button
+            onClick={onOpenContacts}
+            className="flex flex-col items-center gap-2 snap-start shrink-0"
+          >
             <div className="w-16 h-16 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400">
               <Plus className="w-6 h-6" />
             </div>
@@ -205,6 +403,131 @@ function ContactAvatar({ name, image, active }: { name: string, image: string, a
         <img src={image} alt={name} className="w-full h-full rounded-full object-cover border-2 border-white" />
       </div>
       <span className="text-[10px] font-bold text-slate-600 tracking-wider uppercase">{name}</span>
+    </div>
+  );
+}
+
+function ContactScreen({ contacts, onSaveContact, onBack }: { contacts: Contact[]; onSaveContact: (contact: Contact) => void; onBack: () => void }) {
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [relation, setRelation] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSave = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!name.trim() || !phone.trim()) {
+      setError('Preencha nome e telefone para salvar o contato.');
+      return;
+    }
+
+    const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}`;
+
+    onSaveContact({
+      id,
+      name: name.trim(),
+      phone: phone.replace(/\D/g, ''),
+      relation: relation.trim() || 'Contato',
+    });
+
+    setName('');
+    setPhone('');
+    setRelation('');
+    setError('');
+  };
+
+  return (
+    <div className="px-6 py-4 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold">Contatos de Confiança</h2>
+          <p className="text-slate-500 text-sm mt-1">Cadastre pessoas que receberão sua localização em caso de emergência.</p>
+        </div>
+        <button onClick={onBack} className="text-violet-700 text-sm font-semibold">Voltar</button>
+      </div>
+
+      <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
+        <h3 className="font-bold text-lg mb-4">Contatos salvos</h3>
+        {contacts.length === 0 ? (
+          <p className="text-slate-500 text-sm">Ainda não há contatos cadastrados.</p>
+        ) : (
+          <div className="space-y-3">
+            {contacts.map(contact => (
+              <div key={contact.id} className="rounded-3xl border border-slate-100 p-4 bg-slate-50">
+                <p className="font-semibold text-slate-900">{contact.name} {contact.relation ? `(${contact.relation})` : ''}</p>
+                <p className="text-sm text-slate-600">{contact.phone}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <form onSubmit={handleSave} className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-2">Nome</label>
+          <input
+            value={name}
+            onChange={e => setName(e.target.value)}
+            className="w-full rounded-3xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-violet-300"
+            placeholder="Nome do contato"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-2">Telefone</label>
+          <input
+            value={phone}
+            onChange={e => setPhone(e.target.value)}
+            className="w-full rounded-3xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-violet-300"
+            placeholder="(11) 9 9999-9999"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-2">Relação</label>
+          <input
+            value={relation}
+            onChange={e => setRelation(e.target.value)}
+            className="w-full rounded-3xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-violet-300"
+            placeholder="Mãe, Amiga, Parceira"
+          />
+        </div>
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
+
+        <button
+          type="submit"
+          className="w-full bg-violet-700 text-white rounded-3xl py-4 text-sm font-bold uppercase tracking-widest shadow-md shadow-violet-700/20"
+        >
+          Salvar contato
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function SettingsScreen({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="px-6 py-4 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold">Configurações</h2>
+          <p className="text-slate-500 text-sm mt-1">Ajustes rápidos de segurança e conexão.</p>
+        </div>
+        <button onClick={onBack} className="text-violet-700 text-sm font-semibold">Voltar</button>
+      </div>
+
+      <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm space-y-4">
+        <div>
+          <h3 className="font-semibold text-slate-900">Conexão de dados</h3>
+          <p className="text-sm text-slate-500">O app funciona melhor com internet ativa para enviar alertas e localização.</p>
+        </div>
+        <div>
+          <h3 className="font-semibold text-slate-900">GPS</h3>
+          <p className="text-sm text-slate-500">Permita o acesso ao GPS para localizar delegacias mais próximas e enviar coordenadas exatas.</p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -307,7 +630,9 @@ function ActiveEventScreen({ onAction, decision }: { onAction: (a: ActionType) =
   );
 }
 
-function ShareLocationScreen({ onAction }: { onAction: (a: ActionType) => void }) {
+function ShareLocationScreen({ onAction, contacts }: { onAction: (a: ActionType) => void; contacts: Contact[] }) {
+  const primaryContact = contacts.length ? contacts[0] : null;
+
   return (
     <div className="px-6 py-4 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-center">
@@ -336,34 +661,28 @@ function ShareLocationScreen({ onAction }: { onAction: (a: ActionType) => void }
 
       <div>
         <div className="flex justify-between items-end mb-4">
-          <h3 className="text-xl font-bold">Select Contact</h3>
-          <button className="text-violet-700 text-sm font-semibold">Manage All</button>
+          <h3 className="text-xl font-bold">Contato principal</h3>
+          <button onClick={() => onAction('enviar_localizacao')} className="text-violet-700 text-sm font-semibold">Enviar agora</button>
         </div>
-        
         <div className="flex flex-col gap-3">
-          <div className="bg-violet-100 border border-violet-200 p-4 rounded-2xl flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img src="https://i.pravatar.cc/150?u=ana" alt="Ana" className="w-12 h-12 rounded-full" />
-              <div>
-                <p className="font-bold text-slate-900">Ana Paula (Mãe)</p>
-                <p className="text-xs text-violet-700">+55 11 98765-4321</p>
+          {primaryContact ? (
+            <div className="bg-violet-100 border border-violet-200 p-4 rounded-2xl flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <img src={`https://i.pravatar.cc/150?u=${encodeURIComponent(primaryContact.name)}`} alt={primaryContact.name} className="w-12 h-12 rounded-full" />
+                <div>
+                  <p className="font-bold text-slate-900">{primaryContact.name}{primaryContact.relation ? ` (${primaryContact.relation})` : ''}</p>
+                  <p className="text-xs text-violet-700">{primaryContact.phone}</p>
+                </div>
+              </div>
+              <div className="w-6 h-6 bg-violet-700 rounded-full flex items-center justify-center">
+                <CheckCircle2 className="w-4 h-4 text-white" />
               </div>
             </div>
-            <div className="w-6 h-6 bg-violet-700 rounded-full flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4 text-white" />
+          ) : (
+            <div className="bg-white border border-slate-100 p-4 rounded-2xl text-slate-500">
+              Nenhum contato configurado. Cadastre pelo menu de contatos para compartilhar sua localização rapidamente.
             </div>
-          </div>
-
-          <div className="bg-white border border-slate-100 p-4 rounded-2xl flex items-center justify-between shadow-sm">
-            <div className="flex items-center gap-3">
-              <img src="https://i.pravatar.cc/150?u=carlos" alt="Ricardo" className="w-12 h-12 rounded-full" />
-              <div>
-                <p className="font-bold text-slate-900">Ricardo Silva</p>
-                <p className="text-xs text-slate-500">+55 11 91234-5678</p>
-              </div>
-            </div>
-            <div className="w-6 h-6 border-2 border-slate-300 rounded-full"></div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -387,124 +706,78 @@ function ShareLocationScreen({ onAction }: { onAction: (a: ActionType) => void }
   );
 }
 
-function HelpNearbyScreen({ onAction }: { onAction: (a: ActionType) => void }) {
+function HelpNearbyScreen({ stations, locationStatus, onRefresh }: { stations: (PoliceStation & { distanceKm: number })[]; locationStatus: string; onRefresh: () => void }) {
   const openMapsLink = (query: string) => {
     window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`, '_blank');
   };
 
   return (
     <div className="px-6 py-4 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="bg-slate-200 h-64 rounded-3xl relative overflow-hidden flex items-center justify-center -mx-2 shadow-inner">
-        <iframe 
-          width="100%" 
-          height="100%" 
-          style={{ border: 0 }} 
-          loading="lazy" 
-          allowFullScreen 
-          referrerPolicy="no-referrer-when-downgrade" 
-          src="https://maps.google.com/maps?q=delegacia+de+policia&t=&z=13&ie=UTF8&iwloc=&output=embed">
-        </iframe>
-        <button 
-          onClick={() => openMapsLink('delegacia de policia')}
-          className="absolute bottom-4 right-4 w-12 h-12 bg-white rounded-2xl shadow-lg flex items-center justify-center text-violet-700 z-10 hover:bg-slate-50"
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold">Ajuda Próxima</h2>
+          <p className="text-slate-500 text-sm mt-1">Postos de segurança reais perto de você</p>
+        </div>
+        <button
+          onClick={onRefresh}
+          className="bg-violet-700 text-white rounded-2xl px-4 py-2 text-xs font-semibold uppercase tracking-widest shadow-md shadow-violet-700/20"
         >
-          <Navigation className="w-5 h-5" />
+          Atualizar
         </button>
       </div>
 
-      <div className="flex justify-between items-end">
-        <div>
-          <h2 className="text-2xl font-bold">Ajuda Próxima</h2>
-          <p className="text-slate-500 text-sm mt-1">Postos de segurança ativos num raio de 5km</p>
-        </div>
-        <div className="bg-slate-200 text-slate-700 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase shrink-0">
-          Live Status
-        </div>
-      </div>
+      <div className="text-slate-500 text-sm">{locationStatus}</div>
 
       <div className="flex flex-col gap-4">
-        <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-          <div className="flex justify-between items-start mb-4">
-            <div className="flex gap-3">
-              <div className="w-12 h-12 bg-violet-100 rounded-2xl flex items-center justify-center text-violet-700 shrink-0">
-                <Shield className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-bold text-lg leading-tight">Delegacias</h3>
-                <p className="text-slate-500 text-sm">1.2 km de distância</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 bg-violet-50 text-violet-700 px-2 py-1 rounded-full text-xs font-semibold">
-              <div className="w-1.5 h-1.5 bg-violet-600 rounded-full"></div>
-              Aberto
-            </div>
+        {stations.length === 0 ? (
+          <div className="bg-white p-5 rounded-3xl border border-slate-100 text-slate-500 text-center">
+            Carregando delegacias próximas...
           </div>
-          
-          <p className="text-slate-700 font-medium mb-1">27º Distrito Policial - Campo Belo</p>
-          <p className="text-slate-400 text-xs font-bold tracking-wider uppercase mb-4">Rua Dr. Jesuíno Maciel, 125</p>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <button 
-              onClick={() => openMapsLink('27º Distrito Policial - Campo Belo')}
-              className="bg-slate-100 text-slate-900 rounded-xl py-3 flex items-center justify-center gap-2 text-sm font-semibold active:scale-[0.98] transition-transform"
-            >
-              <MapIcon className="w-4 h-4" />
-              Abrir no<br/>Google Maps
-            </button>
-            <button 
-              onClick={() => openMapsLink('27º Distrito Policial - Campo Belo')}
-              className="bg-violet-700 text-white rounded-xl py-3 flex items-center justify-center gap-2 text-sm font-semibold shadow-md shadow-violet-700/20 active:scale-[0.98] transition-transform"
-            >
-              <Navigation className="w-4 h-4" />
-              Traçar rota
-            </button>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-          <div className="flex justify-between items-start mb-4">
-            <div className="flex gap-3">
-              <div className="w-12 h-12 bg-fuchsia-100 rounded-2xl flex items-center justify-center text-fuchsia-700 shrink-0">
-                <Asterisk className="w-6 h-6" />
+        ) : (
+          stations.slice(0, 3).map(station => (
+            <div key={station.id} className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
+              <div className="flex justify-between items-start mb-4 gap-3">
+                <div className="flex gap-3">
+                  <div className="w-12 h-12 bg-violet-100 rounded-2xl flex items-center justify-center text-violet-700 shrink-0">
+                    <Shield className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-lg leading-tight">{station.name}</h3>
+                    <p className="text-slate-500 text-sm">{formatDistance(station.distanceKm)}</p>
+                  </div>
+                </div>
+                <div className={cn("flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold", station.openNow ? 'bg-violet-50 text-violet-700' : 'bg-slate-100 text-slate-500')}>
+                  <div className={cn('w-1.5 h-1.5 rounded-full', station.openNow ? 'bg-violet-600' : 'bg-slate-400')} />
+                  {station.openNow ? 'Aberto' : 'Fechado'}
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-lg leading-tight">Polícia</h3>
-                <p className="text-slate-500 text-sm">800 m de distância</p>
+              <p className="text-slate-700 font-medium mb-1">{station.address}</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => openMapsLink(`${station.name} ${station.address}`)}
+                  className="bg-slate-100 text-slate-900 rounded-xl py-3 flex items-center justify-center gap-2 text-sm font-semibold active:scale-[0.98] transition-transform"
+                >
+                  <MapIcon className="w-4 h-4" />
+                  Abrir no Maps
+                </button>
+                <button
+                  onClick={() => openMapsLink(`${station.name} ${station.address}`)}
+                  className="bg-violet-700 text-white rounded-xl py-3 flex items-center justify-center gap-2 text-sm font-semibold shadow-md shadow-violet-700/20 active:scale-[0.98] transition-transform"
+                >
+                  <Navigation className="w-4 h-4" />
+                  Traçar rota
+                </button>
               </div>
             </div>
-            <div className="flex items-center gap-1 bg-fuchsia-50 text-fuchsia-700 px-2 py-1 rounded-full text-xs font-semibold">
-              <div className="w-1.5 h-1.5 bg-fuchsia-600 rounded-full"></div>
-              Ativo
-            </div>
-          </div>
-          
-          <p className="text-slate-700 font-medium mb-1">Base Comunitária PM - Praça Pereira</p>
-          <p className="text-slate-400 text-xs font-bold tracking-wider uppercase mb-4">Av. Santo Amaro, 4200</p>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <button 
-              onClick={() => openMapsLink('Base Comunitária PM - Praça Pereira')}
-              className="bg-slate-100 text-slate-900 rounded-xl py-3 flex items-center justify-center gap-2 text-sm font-semibold active:scale-[0.98] transition-transform"
-            >
-              <MapIcon className="w-4 h-4" />
-              Abrir no<br/>Google Maps
-            </button>
-            <button 
-              onClick={() => openMapsLink('Base Comunitária PM - Praça Pereira')}
-              className="bg-violet-700 text-white rounded-xl py-3 flex items-center justify-center gap-2 text-sm font-semibold shadow-md shadow-violet-700/20 active:scale-[0.98] transition-transform"
-            >
-              <Navigation className="w-4 h-4" />
-              Traçar rota
-            </button>
-          </div>
-        </div>
+          ))
+        )}
       </div>
 
       <div className="bg-slate-800 text-white p-6 rounded-3xl relative overflow-hidden mt-2">
         <Shield className="absolute -right-4 -bottom-4 w-32 h-32 text-white/5" />
         <h3 className="font-bold text-lg mb-2 relative z-10">Protocolo de Segurança</h3>
         <p className="text-slate-300 text-sm leading-relaxed relative z-10">
-          Mantenha o GPS ativado. Se sentir perigo iminente, pressione o botão SOS no menu principal.
+          Mantenha o GPS ativado. Se sentir perigo iminente, vá direto para a delegacia mais próxima.
         </p>
       </div>
     </div>

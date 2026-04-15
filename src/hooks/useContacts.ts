@@ -27,8 +27,22 @@ export function useContacts() {
     setContacts(prev => [contact, ...prev]);
   };
 
+  const addContacts = (newContacts: Contact[]) => {
+    setContacts(prev => [...newContacts, ...prev]);
+  };
+
+  const toggleEmergencyContact = (id: string) => {
+    setContacts(prev =>
+      prev.map(contact =>
+        contact.id === id ? { ...contact, emergency: !contact.emergency } : contact
+      )
+    );
+  };
+
   return {
     contacts,
     addContact,
+    addContacts,
+    toggleEmergencyContact,
   };
 }

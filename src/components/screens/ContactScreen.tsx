@@ -1,18 +1,21 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Contact } from '../../types';
 
 type ContactScreenProps = {
   contacts: Contact[];
   onSaveContact: (contact: Contact) => void;
+  onImportContacts: (contacts: Contact[]) => void;
+  onToggleEmergency: (id: string) => void;
   onBack: () => void;
 };
 
-export default function ContactScreen({ contacts, onSaveContact, onBack }: ContactScreenProps) {
+export default function ContactScreen({ contacts, onSaveContact, onImportContacts, onToggleEmergency, onBack }: ContactScreenProps) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [relation, setRelation] = useState('');
   const [search, setSearch] = useState('');
   const [error, setError] = useState('');
+  const [importError, setImportError] = useState('');
 
   const filteredContacts = contacts.filter(contact => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -24,7 +27,42 @@ export default function ContactScreen({ contacts, onSaveContact, onBack }: Conta
     );
   });
 
-  const handleSave = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleImportContacts = async () => {
+    const nav = navigator as any;
+
+    if (!nav.contacts?.select) {
+      setImportError('Sincronização de contatos não é suportada neste navegador.');
+      return;
+    }
+
+    try {
+      const selectedContacts = await nav.contacts.select(['name', 'tel'], { multiple: true });
+      const imported = selectedContacts
+        .filter((contact: any) => contact.tel?.length)
+        .map((contact: any, index: number) => ({
+          id: typeof crypto !== 'undefined' && 'randomUUID' in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}-${index}`,
+          name: contact.name?.[0] || 'Contato sem nome',
+          phone: contact.tel?.[0].replace(/\D/g, '') || '',
+          relation: 'Contato',
+          emergency: false,
+        }))
+        .filter((contact: Contact) => contact.phone);
+
+      if (imported.length === 0) {
+        setImportError('Nenhum contato válido foi selecionado.');
+        return;
+      }
+
+      onImportContacts(imported);
+      setImportError('');
+    } catch {
+      setImportError('Falha ao sincronizar contatos. Verifique as permissões do navegador.');
+    }
+  };
+
+  const handleSave = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!name.trim() || !phone.trim()) {
@@ -41,6 +79,7 @@ export default function ContactScreen({ contacts, onSaveContact, onBack }: Conta
       name: name.trim(),
       phone: phone.replace(/\D/g, ''),
       relation: relation.trim() || 'Contato',
+      emergency: false,
     });
 
     setName('');
@@ -61,15 +100,28 @@ export default function ContactScreen({ contacts, onSaveContact, onBack }: Conta
 
       <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
         <div className="flex flex-col gap-4">
-          <div>
-            <h3 className="font-bold text-lg mb-4">Contatos salvos</h3>
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full rounded-3xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-violet-300"
-              placeholder="Buscar por nome ou telefone"
-            />
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="font-bold text-lg mb-1">Contatos salvos</h3>
+              <p className="text-slate-500 text-sm">Sincronize contatos do celular e marque os contatos de emergência.</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleImportContacts}
+              className="rounded-3xl bg-violet-700 text-white px-4 py-3 text-sm font-semibold"
+            >
+              Importar contatos
+            </button>
           </div>
+
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full rounded-3xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-violet-300"
+            placeholder="Buscar por nome ou telefone"
+          />
+
+          {importError && <p className="text-sm text-red-600">{importError}</p>}
 
           {contacts.length === 0 ? (
             <p className="text-slate-500 text-sm">Ainda não há contatos cadastrados.</p>
@@ -77,12 +129,33 @@ export default function ContactScreen({ contacts, onSaveContact, onBack }: Conta
             <p className="text-slate-500 text-sm">Nenhum contato encontrado para sua busca.</p>
           ) : (
             <div className="space-y-3">
-              {filteredContacts.map(contact => (
-                <div key={contact.id} className="rounded-3xl border border-slate-100 p-4 bg-slate-50">
-                  <p className="font-semibold text-slate-900">{contact.name} {contact.relation ? `(${contact.relation})` : ''}</p>
-                  <p className="text-sm text-slate-600">{contact.phone}</p>
-                </div>
-              ))}
+              {filteredContacts
+                .slice()
+                .sort((a, b) => (b.emergency ? 1 : 0) - (a.emergency ? 1 : 0))
+                .map(contact => (
+                  <div key={contact.id} className="rounded-3xl border border-slate-100 p-4 bg-slate-50">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-semibold text-slate-900">
+                          {contact.name} {contact.relation ? `(${contact.relation})` : ''}
+                        </p>
+                        <p className="text-sm text-slate-600">{contact.phone}</p>
+                        {contact.emergency && (
+                          <span className="inline-flex items-center mt-2 rounded-full bg-violet-100 text-violet-700 text-[11px] font-semibold uppercase tracking-[0.18em] px-3 py-1">
+                            Emergência
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onToggleEmergency(contact.id)}
+                        className={`rounded-2xl px-3 py-2 text-xs font-semibold ${contact.emergency ? 'bg-violet-700 text-white' : 'bg-slate-200 text-slate-700'}`}
+                      >
+                        {contact.emergency ? 'Remover destaque' : 'Destacar'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
             </div>
           )}
         </div>

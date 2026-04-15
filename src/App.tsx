@@ -25,7 +25,7 @@ export default function App() {
   });
 
   const { user, loading, logout } = useAuth();
-  const { contacts, addContact } = useContacts();
+  const { contacts, addContact, addContacts, toggleEmergencyContact } = useContacts();
   const { userPosition, stations, locationStatus, gpsAvailable, refreshLocation } = useGeolocation();
 
   useEffect(() => {
@@ -127,6 +127,11 @@ export default function App() {
               addContact(contact);
               setCurrentScreen('HOME');
             }}
+            onImportContacts={imported => {
+              addContacts(imported);
+              setCurrentScreen('HOME');
+            }}
+            onToggleEmergency={toggleEmergencyContact}
             onBack={() => setCurrentScreen('HOME')}
           />
         )}

@@ -9,7 +9,7 @@ type ActiveEventScreenProps = {
 };
 
 export default function ActiveEventScreen({ onAction, decision, contacts }: ActiveEventScreenProps) {
-  const primaryContact = contacts.length ? contacts[0] : null;
+  const primaryContact = contacts.find(contact => contact.emergency) ?? (contacts.length ? contacts[0] : null);
 
   const openWhatsApp = () => {
     if (!primaryContact) return;

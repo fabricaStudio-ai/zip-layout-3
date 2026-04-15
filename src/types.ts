@@ -5,6 +5,7 @@ export type Contact = {
   name: string;
   phone: string;
   relation?: string;
+  emergency?: boolean;
 };
 
 export type PoliceStation = {

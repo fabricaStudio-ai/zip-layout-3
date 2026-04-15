@@ -2,10 +2,12 @@
 import { Shield, MapPin, Wifi, WifiOff, Home as HomeIcon, Users, Settings } from 'lucide-react';
 import { processAction, ActionType, AppContext, DecisionResponse } from './lib/decisionEngine';
 import { cn } from './lib/utils';
+import { useAuth } from './hooks/useAuth';
 import { useContacts } from './hooks/useContacts';
 import { useGeolocation } from './hooks/useGeolocation';
 import { ScreenState } from './types';
 import ActiveEventScreen from './components/screens/ActiveEventScreen';
+import AuthScreen from './components/screens/AuthScreen';
 import ContactScreen from './components/screens/ContactScreen';
 import EventEndedScreen from './components/screens/EventEndedScreen';
 import HelpNearbyScreen from './components/screens/HelpNearbyScreen';
@@ -22,6 +24,7 @@ export default function App() {
     contatos_configurados: false,
   });
 
+  const { user, loading, logout } = useAuth();
   const { contacts, addContact } = useContacts();
   const { userPosition, stations, locationStatus, gpsAvailable, refreshLocation } = useGeolocation();
 
@@ -56,6 +59,18 @@ export default function App() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-900 flex items-center justify-center">
+        <div className="text-center text-sm text-slate-500">Carregando sessão...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthScreen onSuccess={() => undefined} />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col max-w-md mx-auto shadow-xl overflow-hidden relative">
       <header className="flex items-center justify-between px-6 py-4 bg-slate-50 z-10">
@@ -72,12 +87,20 @@ export default function App() {
             {context.internet_disponivel ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
             {context.internet_disponivel ? 'ON' : 'OFF'}
           </div>
+          <button
+            type="button"
+            onClick={logout}
+            className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-200"
+          >
+            Sair
+          </button>
         </div>
       </header>
 
       <main className="flex-1 overflow-y-auto pb-24">
         {currentScreen === 'HOME' && (
           <HomeScreen
+            userName={user?.email ?? undefined}
             onAction={handleAction}
             contacts={contacts}
             onOpenContacts={() => setCurrentScreen('CONTACTS')}

@@ -5,17 +5,20 @@ import ContactAvatar from '../ui/ContactAvatar';
 import RiskButton from '../ui/RiskButton';
 
 type HomeScreenProps = {
+  userName?: string;
   onAction: (action: ActionType) => void;
   contacts: Contact[];
   onOpenContacts: () => void;
 };
 
-export default function HomeScreen({ onAction, contacts, onOpenContacts }: HomeScreenProps) {
+export default function HomeScreen({ userName, onAction, contacts, onOpenContacts }: HomeScreenProps) {
+  const greetingName = userName ? userName.split('@')[0] : 'Maria';
+
   return (
     <div className="px-6 py-4 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Olá, Maria</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Olá, {greetingName}</h1>
           <p className="text-slate-600 mt-1">Seu refúgio está ativo e<br />monitorado.</p>
         </div>
         <button

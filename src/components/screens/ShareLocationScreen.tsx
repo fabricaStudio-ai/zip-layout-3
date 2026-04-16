@@ -13,11 +13,10 @@ export default function ShareLocationScreen({ onAction, contacts, userPosition }
   const primaryContact = contacts.find(contact => contact.emergency) ?? (contacts.length ? contacts[0] : null);
 
   const openWhatsApp = () => {
-    if (!primaryContact) return;
+    if (!primaryContact || !userPosition) return;
     const phone = primaryContact.phone.replace(/\D/g, '');
-    const locationLink = buildMapLocationLink(userPosition ?? undefined);
-    const coordsText = userPosition ? `Lat: ${userPosition.lat.toFixed(6)}, Lng: ${userPosition.lng.toFixed(6)}` : 'Localização ainda não capturada.';
-    const message = `Estou compartilhando minha localização em tempo real via Serene Sentinel. ${coordsText}. Veja no mapa: ${locationLink}`;
+    const locationLink = buildMapLocationLink(userPosition);
+    const message = `Estou em perigo e preciso de ajuda. Esta é a minha localização atual: ${formatLocationDisplay(userPosition)}. Acompanhe meu trajeto pelo mapa: ${locationLink}`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -42,7 +41,7 @@ export default function ShareLocationScreen({ onAction, contacts, userPosition }
         <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
           <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-3">Mensagem padrão</p>
           <div className="bg-slate-100 p-4 rounded-2xl text-slate-700 text-sm leading-relaxed mb-4">
-            Estou compartilhando minha localização em tempo real via Serene Sentinel para sua segurança. Acompanhe meu trajeto.
+            Estou em risco. Compartilhando minha localização em tempo real pelo Serene Sentinel —  Caso perceba qualquer interrupção ou situação incomum, por favor tente entrar em contato comigo ou acione ajuda.  
           </div>
           <div className="bg-white p-4 rounded-2xl border border-slate-200 text-slate-700 text-sm">
             <p className="font-semibold mb-2">Coordenadas atuais</p>
@@ -86,9 +85,9 @@ export default function ShareLocationScreen({ onAction, contacts, userPosition }
       <button
         onClick={openWhatsApp}
         className={`rounded-2xl p-4 flex items-center justify-center gap-3 font-bold text-lg shadow-lg shadow-violet-700/20 active:scale-[0.98] transition-transform mt-2 ${
-          primaryContact ? 'bg-violet-700 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+          primaryContact && userPosition ? 'bg-violet-700 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'
         }`}
-        disabled={!primaryContact}
+        disabled={!primaryContact || !userPosition}
       >
         <Share2 className="w-5 h-5" />
         {primaryContact ? 'Compartilhar localização via WhatsApp' : 'Cadastre um contato primeiro'}

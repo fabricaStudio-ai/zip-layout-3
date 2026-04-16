@@ -19,12 +19,11 @@ export default function ActiveEventScreen({ onAction, decision, contacts, userPo
   const isFallbackLocation = !userPosition;
 
   const openWhatsApp = () => {
-    if (!primaryContact) return;
+    if (!primaryContact || !userPosition) return;
     onAction('abrir_whatsapp');
     const phone = primaryContact.phone.replace(/\D/g, '');
-    const locationLink = buildMapLocationLink(mapLocation);
-    const coordsText = userPosition ? `Lat: ${userPosition.lat.toFixed(6)}, Lng: ${userPosition.lng.toFixed(6)}` : 'Localização ainda não capturada.';
-    const message = `Preciso de ajuda! Estou aqui: ${coordsText}. Confira no mapa: ${locationLink}`;
+    const locationLink = buildMapLocationLink(userPosition);
+    const message = `Preciso de ajuda! Esta é a minha localização atual: ${formatLocationDisplay(userPosition)}. Acompanhe meu trajeto pelo mapa: ${locationLink}`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -99,9 +98,9 @@ export default function ActiveEventScreen({ onAction, decision, contacts, userPo
         <button
           onClick={openWhatsApp}
           className={`rounded-2xl flex flex-col items-center justify-center gap-2 shadow-sm active:scale-[0.98] transition-transform py-4 px-4 ${
-            primaryContact ? 'bg-white text-slate-900' : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+            primaryContact && userPosition ? 'bg-white text-slate-900' : 'bg-slate-200 text-slate-400 cursor-not-allowed'
           }`}
-          disabled={!primaryContact}
+          disabled={!primaryContact || !userPosition}
         >
           <div className="relative">
             <Send className="w-6 h-6 text-green-600" />

@@ -1,7 +1,6 @@
 import { CheckCircle2, Mic, MapPin, Send, Shield, Phone, X } from 'lucide-react';
 import { ActionType, DecisionResponse } from '../../lib/decisionEngine';
 import { Contact, GeoPosition } from '../../types';
-import { DEFAULT_LOCATION } from '../../constants/policeStations';
 import { buildEmbedMapUrl, buildMapLocationLink, formatLocationDisplay } from '../../lib/utils';
 
 type ActiveEventScreenProps = {
@@ -15,7 +14,6 @@ type ActiveEventScreenProps = {
 export default function ActiveEventScreen({ onAction, decision, contacts, userPosition }: ActiveEventScreenProps) {
   const primaryContact = contacts.find(contact => contact.emergency) ?? (contacts.length ? contacts[0] : null);
 
-  const mapLocation = userPosition || DEFAULT_LOCATION;
   const isFallbackLocation = !userPosition;
 
   const openWhatsApp = () => {
@@ -27,8 +25,8 @@ export default function ActiveEventScreen({ onAction, decision, contacts, userPo
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
-  const mapUrl = `https://maps.google.com/maps?q=${mapLocation.lat},${mapLocation.lng}&z=16&output=embed`;
-  const locationWarning = userPosition ? 'Monitoramento em tempo real' : 'GPS inativo. Exibindo localização padrão.';
+  const mapUrl = userPosition ? buildEmbedMapUrl(userPosition) : undefined;
+  const locationWarning = userPosition ? 'Monitoramento em tempo real' : 'Ative o GPS para exibir sua localização atual.';
 
   return (
     <div className="px-6 py-4 flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -66,22 +64,29 @@ export default function ActiveEventScreen({ onAction, decision, contacts, userPo
       )}
 
       <div className="relative bg-slate-200 h-64 rounded-3xl overflow-hidden shadow-sm">
-        <iframe
-          title="Mapa de monitoramento"
-          src={buildEmbedMapUrl(mapLocation)}
-          width="100%"
-          height="100%"
-          style={{ border: 0 }}
-          loading="lazy"
-          allowFullScreen
-          referrerPolicy="no-referrer-when-downgrade"
-        />
+        {mapUrl ? (
+          <iframe
+            title="Mapa de monitoramento"
+            src={mapUrl}
+            width="100%"
+            height="100%"
+            style={{ border: 0 }}
+            loading="lazy"
+            allowFullScreen
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+        ) : (
+          <div className="h-full flex items-center justify-center text-slate-500 text-sm px-4 text-center">
+            Ative o GPS para visualizar sua localização atual no mapa.
+          </div>
+        )}
         <div className="absolute bottom-4 left-4 bg-white/90 px-3 py-2 rounded-full text-sm font-semibold text-slate-900 shadow-sm">
           {locationWarning}
         </div>
         <button
-          onClick={() => window.open(buildMapLocationLink(mapLocation), '_blank')}
-          className="absolute bottom-4 right-4 bg-violet-700 text-white rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-wider shadow-lg shadow-violet-700/20"
+          onClick={() => userPosition && window.open(buildMapLocationLink(userPosition), '_blank')}
+          disabled={!userPosition}
+          className={`absolute bottom-4 right-4 rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-wider shadow-lg shadow-violet-700/20 ${userPosition ? 'bg-violet-700 text-white' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}
         >
           Abrir no Maps
         </button>

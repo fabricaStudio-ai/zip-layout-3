@@ -1,9 +1,4 @@
-import { PoliceStation, GeoPosition } from '../types';
-
-export const DEFAULT_LOCATION: GeoPosition = {
-  lat: -23.5505,
-  lng: -46.6333,
-};
+import { PoliceStation } from '../types';
 
 export const POLICE_STATIONS: PoliceStation[] = [
   {

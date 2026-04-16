@@ -18,6 +18,10 @@ export type PoliceStation = {
   openNow: boolean;
 };
 
+export type StationWithDistance = PoliceStation & {
+  distanceKm: number;
+};
+
 export type GeoPosition = {
   lat: number;
   lng: number;

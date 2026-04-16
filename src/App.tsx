@@ -26,7 +26,7 @@ export default function App() {
 
   const { user, loading, logout } = useAuth();
   const { contacts, addContact, addContacts, toggleEmergencyContact } = useContacts();
-  const { userPosition, stations, locationStatus, gpsAvailable, refreshLocation } = useGeolocation();
+  const { userPosition, locationStatus, gpsAvailable, refreshLocation } = useGeolocation();
 
   useEffect(() => {
     setContext(prev => ({
@@ -127,7 +127,6 @@ export default function App() {
 
         {currentScreen === 'HELP_NEARBY' && (
           <HelpNearbyScreen
-            stations={stations}
             locationStatus={locationStatus}
             userPosition={userPosition}
             onRefresh={refreshLocation}

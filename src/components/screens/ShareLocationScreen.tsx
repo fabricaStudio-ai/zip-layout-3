@@ -1,7 +1,6 @@
 import { CheckCircle2, MapPin, Navigation, Share2, Shield } from 'lucide-react';
 import { ActionType } from '../../lib/decisionEngine';
 import { Contact, GeoPosition } from '../../types';
-import { DEFAULT_LOCATION } from '../../constants/policeStations';
 import { buildEmbedMapUrl, buildMapLocationLink, formatLocationDisplay } from '../../lib/utils';
 
 type ShareLocationScreenProps = {
@@ -17,7 +16,8 @@ export default function ShareLocationScreen({ onAction, contacts, userPosition }
     if (!primaryContact || !userPosition) return;
     const phone = primaryContact.phone.replace(/\D/g, '');
     const locationLink = buildMapLocationLink(userPosition);
-    const message = `Estou em perigo e preciso de ajuda. Esta é a minha localização atual: ${formatLocationDisplay(userPosition)}. Acompanhe meu trajeto pelo mapa: ${locationLink}`;
+    const message = `Estou em risco. Compartilhando minha localização em tempo real pelo Serene Sentinel —  Caso perceba qualquer interrupção ou situação incomum, por favor tente entrar em contato comigo ou acione ajuda.  
+ ${formatLocationDisplay(userPosition)}. Acompanhe meu trajeto pelo mapa: ${locationLink}`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -31,22 +31,29 @@ export default function ShareLocationScreen({ onAction, contacts, userPosition }
       </div>
 
       <div className="relative bg-slate-200 h-64 rounded-3xl overflow-hidden shadow-sm">
-        <iframe
-          title="Mapa de localização"
-          src={buildEmbedMapUrl(userPosition || DEFAULT_LOCATION)}
-          width="100%"
-          height="100%"
-          style={{ border: 0 }}
-          loading="lazy"
-          allowFullScreen
-          referrerPolicy="no-referrer-when-downgrade"
-        />
+        {userPosition ? (
+          <iframe
+            title="Mapa de localização"
+            src={buildEmbedMapUrl(userPosition)}
+            width="100%"
+            height="100%"
+            style={{ border: 0 }}
+            loading="lazy"
+            allowFullScreen
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+        ) : (
+          <div className="h-full flex items-center justify-center text-slate-500 text-sm px-4 text-center">
+            Ative o GPS para visualizar sua localização atual no mapa.
+          </div>
+        )}
         <div className="absolute bottom-4 left-4 bg-white/90 px-3 py-2 rounded-full text-sm font-semibold text-slate-900 shadow-sm">
-          {userPosition ? 'Localização atual' : 'GPS inativo. Exibindo localização padrão.'}
+          {userPosition ? 'Localização atual' : 'Ative o GPS para exibir sua localização.'}
         </div>
         <button
-          onClick={() => window.open(buildMapLocationLink(userPosition), '_blank')}
-          className="absolute bottom-4 right-4 w-12 h-12 bg-white rounded-2xl shadow-lg flex items-center justify-center text-violet-700 hover:bg-slate-50"
+          onClick={() => userPosition && window.open(buildMapLocationLink(userPosition), '_blank')}
+          disabled={!userPosition}
+          className={`absolute bottom-4 right-4 w-12 h-12 rounded-2xl shadow-lg flex items-center justify-center ${userPosition ? 'bg-white text-violet-700 hover:bg-slate-50' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}
         >
           <Navigation className="w-5 h-5" />
         </button>

@@ -1,30 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
-import { DEFAULT_LOCATION, POLICE_STATIONS } from '../constants/policeStations';
-import { GeoPosition, PoliceStation } from '../types';
-import { buildStationsWithDistance } from '../lib/geoUtils';
-
-export type StationWithDistance = PoliceStation & { distanceKm: number };
+import { GeoPosition } from '../types';
 
 export function useGeolocation() {
   const [userPosition, setUserPosition] = useState<GeoPosition | null>(null);
   const [locationStatus, setLocationStatus] = useState('Buscando localização...');
-  const [stations, setStations] = useState<StationWithDistance[]>([]);
   const [gpsAvailable, setGpsAvailable] = useState(true);
-
-  const updateStationDistances = useCallback((position: GeoPosition) => {
-    setStations(
-      buildStationsWithDistance(position, POLICE_STATIONS).sort(
-        (a, b) => a.distanceKm - b.distanceKm,
-      ),
-    );
-  }, []);
 
   const loadDefaultStations = useCallback(() => {
     setGpsAvailable(false);
-    setLocationStatus('GPS não disponível ou permissão negada. Mostrando localizações padrão.');
+    setLocationStatus('GPS não disponível ou permissão negada. Ative o GPS para ver sua localização atual.');
     setUserPosition(null);
-    updateStationDistances(DEFAULT_LOCATION);
-  }, [updateStationDistances]);
+  }, []);
 
   const refreshLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -43,14 +29,13 @@ export function useGeolocation() {
         setGpsAvailable(true);
         setUserPosition(coords);
         setLocationStatus('Localização atual encontrada.');
-        updateStationDistances(coords);
       },
       () => {
         loadDefaultStations();
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
-  }, [loadDefaultStations, updateStationDistances]);
+  }, [loadDefaultStations]);
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -69,7 +54,6 @@ export function useGeolocation() {
         setGpsAvailable(true);
         setUserPosition(coords);
         setLocationStatus('Localização atual encontrada.');
-        updateStationDistances(coords);
       },
       () => {
         loadDefaultStations();
@@ -78,11 +62,10 @@ export function useGeolocation() {
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [loadDefaultStations, updateStationDistances]);
+  }, [loadDefaultStations]);
 
   return {
     userPosition,
-    stations,
     locationStatus,
     gpsAvailable,
     refreshLocation,

@@ -1,7 +1,8 @@
 import { CheckCircle2, MapPin, Navigation, Share2, Shield } from 'lucide-react';
 import { ActionType } from '../../lib/decisionEngine';
 import { Contact, GeoPosition } from '../../types';
-import { buildMapLocationLink, formatLocationDisplay } from '../../lib/utils';
+import { DEFAULT_LOCATION } from '../../constants/policeStations';
+import { buildEmbedMapUrl, buildMapLocationLink, formatLocationDisplay } from '../../lib/utils';
 
 type ShareLocationScreenProps = {
   onAction: (action: ActionType) => void;
@@ -30,9 +31,24 @@ export default function ShareLocationScreen({ onAction, contacts, userPosition }
         </div>
       </div>
 
-      <div className="bg-slate-200 h-48 rounded-3xl relative overflow-hidden flex items-center justify-center">
-        <MapPin className="w-16 h-16 text-violet-500 drop-shadow-lg" />
-        <button className="absolute bottom-4 right-4 w-12 h-12 bg-white rounded-2xl shadow-lg flex items-center justify-center text-violet-700">
+      <div className="relative bg-slate-200 h-64 rounded-3xl overflow-hidden shadow-sm">
+        <iframe
+          title="Mapa de localização"
+          src={buildEmbedMapUrl(userPosition || DEFAULT_LOCATION)}
+          width="100%"
+          height="100%"
+          style={{ border: 0 }}
+          loading="lazy"
+          allowFullScreen
+          referrerPolicy="no-referrer-when-downgrade"
+        />
+        <div className="absolute bottom-4 left-4 bg-white/90 px-3 py-2 rounded-full text-sm font-semibold text-slate-900 shadow-sm">
+          {userPosition ? 'Localização atual' : 'GPS inativo. Exibindo localização padrão.'}
+        </div>
+        <button
+          onClick={() => window.open(buildMapLocationLink(userPosition), '_blank')}
+          className="absolute bottom-4 right-4 w-12 h-12 bg-white rounded-2xl shadow-lg flex items-center justify-center text-violet-700 hover:bg-slate-50"
+        >
           <Navigation className="w-5 h-5" />
         </button>
       </div>

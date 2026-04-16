@@ -2,7 +2,7 @@ import { Map as MapIcon, Navigation, Shield } from 'lucide-react';
 import { StationWithDistance } from '../../hooks/useGeolocation';
 import { DEFAULT_LOCATION } from '../../constants/policeStations';
 import { formatDistance } from '../../lib/geoUtils';
-import { cn } from '../../lib/utils';
+import { buildEmbedMapUrl, cn } from '../../lib/utils';
 
 type HelpNearbyScreenProps = {
   stations: StationWithDistance[];
@@ -13,7 +13,7 @@ type HelpNearbyScreenProps = {
 
 export default function HelpNearbyScreen({ stations, locationStatus, userPosition, onRefresh }: HelpNearbyScreenProps) {
   const mapLocation = userPosition || DEFAULT_LOCATION;
-  const mapUrl = `https://maps.google.com/maps?q=delegacia+de+policia&ll=${mapLocation.lat},${mapLocation.lng}&z=13&output=embed`;
+  const mapUrl = buildEmbedMapUrl(mapLocation, 'delegacia de policia', 13);
   const centerText = userPosition
     ? `Centralizado em sua localização atual: ${userPosition.lat.toFixed(5)}, ${userPosition.lng.toFixed(5)}`
     : 'Centralizado em localização padrão.';

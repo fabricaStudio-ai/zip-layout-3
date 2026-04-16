@@ -2,7 +2,7 @@ import { CheckCircle2, Mic, MapPin, Send, Shield, Phone, X } from 'lucide-react'
 import { ActionType, DecisionResponse } from '../../lib/decisionEngine';
 import { Contact, GeoPosition } from '../../types';
 import { DEFAULT_LOCATION } from '../../constants/policeStations';
-import { buildMapLocationLink, formatLocationDisplay } from '../../lib/utils';
+import { buildEmbedMapUrl, buildMapLocationLink, formatLocationDisplay } from '../../lib/utils';
 
 type ActiveEventScreenProps = {
   onAction: (action: ActionType) => void;
@@ -69,7 +69,7 @@ export default function ActiveEventScreen({ onAction, decision, contacts, userPo
       <div className="relative bg-slate-200 h-64 rounded-3xl overflow-hidden shadow-sm">
         <iframe
           title="Mapa de monitoramento"
-          src={mapUrl}
+          src={buildEmbedMapUrl(mapLocation)}
           width="100%"
           height="100%"
           style={{ border: 0 }}

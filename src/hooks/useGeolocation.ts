@@ -32,6 +32,7 @@ export function useGeolocation() {
       return;
     }
 
+    setLocationStatus('Buscando localização...');
     navigator.geolocation.getCurrentPosition(
       position => {
         const coords = {
@@ -47,13 +48,37 @@ export function useGeolocation() {
       () => {
         loadDefaultStations();
       },
-      { timeout: 8000 },
+      { enableHighAccuracy: true, timeout: 10000 },
     );
   }, [loadDefaultStations, updateStationDistances]);
 
   useEffect(() => {
-    refreshLocation();
-  }, [refreshLocation]);
+    if (!navigator.geolocation) {
+      loadDefaultStations();
+      return;
+    }
+
+    setLocationStatus('Monitorando localização...');
+    const watchId = navigator.geolocation.watchPosition(
+      position => {
+        const coords = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+
+        setGpsAvailable(true);
+        setUserPosition(coords);
+        setLocationStatus('Localização atual encontrada.');
+        updateStationDistances(coords);
+      },
+      () => {
+        loadDefaultStations();
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 },
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [loadDefaultStations, updateStationDistances]);
 
   return {
     userPosition,

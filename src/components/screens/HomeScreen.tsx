@@ -92,7 +92,7 @@ export default function HomeScreen({ userName, onAction, contacts, onOpenContact
               <div key={contact.id}>
                 <ContactAvatar
                   name={contact.name}
-                  image={`https://i.pravatar.cc/150?u=${encodeURIComponent(contact.name)}`}
+                  image={contact.photo || `https://i.pravatar.cc/150?u=${encodeURIComponent(contact.name)}`}
                   active={index === 0}
                 />
               </div>

@@ -1,19 +1,23 @@
 import { CheckCircle2, MapPin, Navigation, Share2, Shield } from 'lucide-react';
 import { ActionType } from '../../lib/decisionEngine';
-import { Contact } from '../../types';
+import { Contact, GeoPosition } from '../../types';
+import { buildMapLocationLink, formatLocationDisplay } from '../../lib/utils';
 
 type ShareLocationScreenProps = {
   onAction: (action: ActionType) => void;
   contacts: Contact[];
+  userPosition?: GeoPosition | null;
 };
 
-export default function ShareLocationScreen({ onAction, contacts }: ShareLocationScreenProps) {
+export default function ShareLocationScreen({ onAction, contacts, userPosition }: ShareLocationScreenProps) {
   const primaryContact = contacts.find(contact => contact.emergency) ?? (contacts.length ? contacts[0] : null);
 
   const openWhatsApp = () => {
     if (!primaryContact) return;
     const phone = primaryContact.phone.replace(/\D/g, '');
-    const message = `Estou compartilhando minha localização em tempo real via Serene Sentinel para sua segurança. Acompanhe meu trajeto.`;
+    const locationLink = buildMapLocationLink(userPosition ?? undefined);
+    const coordsText = userPosition ? `Lat: ${userPosition.lat.toFixed(6)}, Lng: ${userPosition.lng.toFixed(6)}` : 'Localização ainda não capturada.';
+    const message = `Estou compartilhando minha localização em tempo real via Serene Sentinel. ${coordsText}. Veja no mapa: ${locationLink}`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -34,11 +38,15 @@ export default function ShareLocationScreen({ onAction, contacts }: ShareLocatio
       </div>
 
       <div>
-        <h3 className="text-xl font-bold mb-4">Message Details</h3>
+        <h3 className="text-xl font-bold mb-4">Detalhes da localização</h3>
         <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-          <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-3">Pre-defined Message</p>
-          <div className="bg-slate-100 p-4 rounded-2xl text-slate-700 text-sm leading-relaxed">
+          <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-3">Mensagem padrão</p>
+          <div className="bg-slate-100 p-4 rounded-2xl text-slate-700 text-sm leading-relaxed mb-4">
             Estou compartilhando minha localização em tempo real via Serene Sentinel para sua segurança. Acompanhe meu trajeto.
+          </div>
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 text-slate-700 text-sm">
+            <p className="font-semibold mb-2">Coordenadas atuais</p>
+            <p className="text-slate-500">{formatLocationDisplay(userPosition ?? undefined)}</p>
           </div>
         </div>
       </div>
@@ -52,7 +60,7 @@ export default function ShareLocationScreen({ onAction, contacts }: ShareLocatio
           {primaryContact ? (
             <div className="bg-violet-100 border border-violet-200 p-4 rounded-2xl flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <img src={`https://i.pravatar.cc/150?u=${encodeURIComponent(primaryContact.name)}`} alt={primaryContact.name} className="w-12 h-12 rounded-full" />
+                <img src={primaryContact.photo || `https://i.pravatar.cc/150?u=${encodeURIComponent(primaryContact.name)}`} alt={primaryContact.name} className="w-12 h-12 rounded-full object-cover" />
                 <div>
                   <p className="font-bold text-slate-900">{primaryContact.name}{primaryContact.relation ? ` (${primaryContact.relation})` : ''}</p>
                   <p className="text-xs text-violet-700">{primaryContact.phone}</p>

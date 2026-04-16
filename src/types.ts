@@ -6,6 +6,7 @@ export type Contact = {
   phone: string;
   relation?: string;
   emergency?: boolean;
+  photo?: string;
 };
 
 export type PoliceStation = {

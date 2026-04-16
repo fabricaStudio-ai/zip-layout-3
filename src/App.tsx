@@ -107,9 +107,23 @@ export default function App() {
           />
         )}
 
-        {currentScreen === 'ACTIVE' && <ActiveEventScreen onAction={handleAction} decision={decision} contacts={contacts} />}
+        {currentScreen === 'ACTIVE' && (
+          <ActiveEventScreen
+            onAction={handleAction}
+            decision={decision}
+            contacts={contacts}
+            userPosition={userPosition}
+            gpsAvailable={gpsAvailable}
+          />
+        )}
 
-        {currentScreen === 'SHARE_LOC' && <ShareLocationScreen onAction={handleAction} contacts={contacts} />}
+        {currentScreen === 'SHARE_LOC' && (
+          <ShareLocationScreen
+            onAction={handleAction}
+            contacts={contacts}
+            userPosition={userPosition}
+          />
+        )}
 
         {currentScreen === 'HELP_NEARBY' && (
           <HelpNearbyScreen

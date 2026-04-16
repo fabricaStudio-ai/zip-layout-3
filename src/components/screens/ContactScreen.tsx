@@ -9,6 +9,27 @@ type ContactScreenProps = {
   onBack: () => void;
 };
 
+async function resolveContactPhoto(icon: any): Promise<string | undefined> {
+  if (!icon) return undefined;
+  const firstIcon = Array.isArray(icon) ? icon[0] : icon;
+  if (!firstIcon) return undefined;
+
+  if (typeof firstIcon === 'string') {
+    return firstIcon;
+  }
+
+  if (firstIcon instanceof Blob) {
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(undefined);
+      reader.readAsDataURL(firstIcon);
+    });
+  }
+
+  return undefined;
+}
+
 export default function ContactScreen({ contacts, onSaveContact, onImportContacts, onToggleEmergency, onBack }: ContactScreenProps) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -36,26 +57,32 @@ export default function ContactScreen({ contacts, onSaveContact, onImportContact
     }
 
     try {
-      const selectedContacts = await nav.contacts.select(['name', 'tel'], { multiple: true });
-      const imported = selectedContacts
+      const selectedContacts = await nav.contacts.select(['name', 'tel', 'icon'], { multiple: true });
+      const imported = await Promise.all(selectedContacts
         .filter((contact: any) => contact.tel?.length)
-        .map((contact: any, index: number) => ({
-          id: typeof crypto !== 'undefined' && 'randomUUID' in crypto
-            ? crypto.randomUUID()
-            : `${Date.now()}-${index}`,
-          name: contact.name?.[0] || 'Contato sem nome',
-          phone: contact.tel?.[0].replace(/\D/g, '') || '',
-          relation: 'Contato',
-          emergency: false,
-        }))
-        .filter((contact: Contact) => contact.phone);
+        .map(async (contact: any, index: number) => {
+          const photo = await resolveContactPhoto(contact.icon);
 
-      if (imported.length === 0) {
+          return {
+            id: typeof crypto !== 'undefined' && 'randomUUID' in crypto
+              ? crypto.randomUUID()
+              : `${Date.now()}-${index}`,
+            name: contact.name?.[0] || 'Contato sem nome',
+            phone: contact.tel?.[0].replace(/\D/g, '') || '',
+            relation: 'Contato',
+            emergency: false,
+            photo,
+          };
+        }));
+
+      const validContacts = imported.filter((contact: Contact) => contact.phone);
+
+      if (validContacts.length === 0) {
         setImportError('Nenhum contato válido foi selecionado.');
         return;
       }
 
-      onImportContacts(imported);
+      onImportContacts(validContacts);
       setImportError('');
     } catch {
       setImportError('Falha ao sincronizar contatos. Verifique as permissões do navegador.');

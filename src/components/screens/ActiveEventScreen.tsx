@@ -1,23 +1,35 @@
-import { CheckCircle2, Mic, MapPin, Navigation, Send, Shield, Phone, X } from 'lucide-react';
+import { CheckCircle2, Mic, MapPin, Send, Shield, Phone, X } from 'lucide-react';
 import { ActionType, DecisionResponse } from '../../lib/decisionEngine';
-import { Contact } from '../../types';
+import { Contact, GeoPosition } from '../../types';
+import { DEFAULT_LOCATION } from '../../constants/policeStations';
+import { buildMapLocationLink, formatLocationDisplay } from '../../lib/utils';
 
 type ActiveEventScreenProps = {
   onAction: (action: ActionType) => void;
   decision: DecisionResponse | null;
   contacts: Contact[];
+  userPosition?: GeoPosition | null;
+  gpsAvailable?: boolean;
 };
 
-export default function ActiveEventScreen({ onAction, decision, contacts }: ActiveEventScreenProps) {
+export default function ActiveEventScreen({ onAction, decision, contacts, userPosition }: ActiveEventScreenProps) {
   const primaryContact = contacts.find(contact => contact.emergency) ?? (contacts.length ? contacts[0] : null);
+
+  const mapLocation = userPosition || DEFAULT_LOCATION;
+  const isFallbackLocation = !userPosition;
 
   const openWhatsApp = () => {
     if (!primaryContact) return;
     onAction('abrir_whatsapp');
     const phone = primaryContact.phone.replace(/\D/g, '');
-    const message = `Preciso de ajuda! Estou enviando minha localização para ${primaryContact.name}.`;
+    const locationLink = buildMapLocationLink(mapLocation);
+    const coordsText = userPosition ? `Lat: ${userPosition.lat.toFixed(6)}, Lng: ${userPosition.lng.toFixed(6)}` : 'Localização ainda não capturada.';
+    const message = `Preciso de ajuda! Estou aqui: ${coordsText}. Confira no mapa: ${locationLink}`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
+
+  const mapUrl = `https://maps.google.com/maps?q=${mapLocation.lat},${mapLocation.lng}&z=16&output=embed`;
+  const locationWarning = userPosition ? 'Monitoramento em tempo real' : 'GPS inativo. Exibindo localização padrão.';
 
   return (
     <div className="px-6 py-4 flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -48,16 +60,32 @@ export default function ActiveEventScreen({ onAction, decision, contacts }: Acti
             </div>
             <span className="font-semibold">Localização ativa</span>
           </div>
-          <span className="text-slate-400 font-mono text-[10px]">40.7128° N, 74.0060° W</span>
+          <span className="text-slate-400 font-mono text-[10px]">
+            {formatLocationDisplay(userPosition ?? undefined)}
+          </span>
         </div>
       )}
 
-      <div className="bg-slate-200 h-48 rounded-3xl relative overflow-hidden flex items-end p-4">
-        <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay" />
-        <div className="bg-white/80 backdrop-blur-md px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2">
-          <div className="w-2 h-2 bg-violet-500 rounded-full" />
-          Monitoramento em tempo real
+      <div className="relative bg-slate-200 h-64 rounded-3xl overflow-hidden shadow-sm">
+        <iframe
+          title="Mapa de monitoramento"
+          src={mapUrl}
+          width="100%"
+          height="100%"
+          style={{ border: 0 }}
+          loading="lazy"
+          allowFullScreen
+          referrerPolicy="no-referrer-when-downgrade"
+        />
+        <div className="absolute bottom-4 left-4 bg-white/90 px-3 py-2 rounded-full text-sm font-semibold text-slate-900 shadow-sm">
+          {locationWarning}
         </div>
+        <button
+          onClick={() => window.open(buildMapLocationLink(mapLocation), '_blank')}
+          className="absolute bottom-4 right-4 bg-violet-700 text-white rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-wider shadow-lg shadow-violet-700/20"
+        >
+          Abrir no Maps
+        </button>
       </div>
 
       <div className="grid grid-cols-2 gap-4 mt-2">

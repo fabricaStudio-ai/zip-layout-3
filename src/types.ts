@@ -15,7 +15,7 @@ export type PoliceStation = {
   address: string;
   lat: number;
   lng: number;
-  openNow: boolean;
+  openNow?: boolean;
 };
 
 export type GeoPosition = {

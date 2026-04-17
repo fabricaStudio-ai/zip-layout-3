@@ -1,8 +1,10 @@
+import { useEffect, useState } from 'react';
 import { Map as MapIcon, Navigation, Shield } from 'lucide-react';
-import { StationWithDistance } from '../../hooks/useGeolocation';
-import { DEFAULT_LOCATION } from '../../constants/policeStations';
-import { formatDistance } from '../../lib/geoUtils';
-import { cn } from '../../lib/utils';
+import { PoliceStation } from '../../types';
+import { buildStationsWithDistance, formatDistance } from '../../lib/geoUtils';
+import { fetchNearbyPoliceStations } from '../../lib/policeSearch';
+
+type StationWithDistance = PoliceStation & { distanceKm: number };
 
 type HelpNearbyScreenProps = {
   stations: StationWithDistance[];
@@ -12,17 +14,57 @@ type HelpNearbyScreenProps = {
 };
 
 export default function HelpNearbyScreen({ stations, locationStatus, userPosition, onRefresh }: HelpNearbyScreenProps) {
-  const mapLocation = userPosition || DEFAULT_LOCATION;
-  const mapUrl = `https://maps.google.com/maps?q=delegacia+de+policia&ll=${mapLocation.lat},${mapLocation.lng}&z=13&output=embed`;
+  const [nearbyStations, setNearbyStations] = useState<StationWithDistance[]>([]);
+  const [stationsLoading, setStationsLoading] = useState(false);
+  const [stationsError, setStationsError] = useState<string | null>(null);
+
+  const mapUrl = userPosition
+    ? `https://maps.google.com/maps?q=delegacia+de+policia&ll=${userPosition.lat},${userPosition.lng}&z=13&output=embed`
+    : undefined;
+
   const centerText = userPosition
     ? `Centralizado em sua localização atual: ${userPosition.lat.toFixed(5)}, ${userPosition.lng.toFixed(5)}`
-    : 'Centralizado em localização padrão.';
+    : 'Ative o GPS para centralizar no seu local e buscar delegacias próximas.';
 
-  const nearbyStations = stations.filter(station => station.distanceKm <= 7);
-  const displayStations = nearbyStations.length > 0 ? nearbyStations : stations.slice(0, 3);
-  const headerText = nearbyStations.length > 0
-    ? 'Delegacias dentro de 7 km'
-    : 'Nenhuma delegacia a menos de 7 km. Mostrando as mais próximas';
+  useEffect(() => {
+    if (!userPosition) {
+      setNearbyStations([]);
+      setStationsError(null);
+      setStationsLoading(false);
+      return;
+    }
+
+    setStationsLoading(true);
+    setStationsError(null);
+
+    fetchNearbyPoliceStations(userPosition, 5)
+      .then(results => {
+        const resultsWithDistance = buildStationsWithDistance(userPosition, results).sort(
+          (a, b) => a.distanceKm - b.distanceKm,
+        );
+
+        setNearbyStations(resultsWithDistance);
+      })
+      .catch(() => {
+        setStationsError('Não foi possível buscar delegacias próximas agora.');
+        setNearbyStations([]);
+      })
+      .finally(() => {
+        setStationsLoading(false);
+      });
+  }, [userPosition]);
+
+  const nearby = nearbyStations.filter(station => station.distanceKm <= 7);
+  const displayStations = userPosition
+    ? nearby.length > 0
+      ? nearby
+      : nearbyStations.slice(0, 3)
+    : [];
+  const headerText = userPosition
+    ? nearby.length > 0
+      ? 'Delegacias dentro de 7 km'
+      : 'Delegacias próximas à sua localização'
+    : 'Ative o GPS para ver delegacias próximas à sua localização';
 
   const openMapsLink = (query: string) => {
     window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`, '_blank');
@@ -56,18 +98,32 @@ export default function HelpNearbyScreen({ stations, locationStatus, userPositio
           referrerPolicy="no-referrer-when-downgrade"
           src={mapUrl}
         />
-        <button
-          onClick={() => openMapsLink(`delegacia de policia near ${mapLocation.lat},${mapLocation.lng}`)}
-          className="absolute bottom-4 right-4 w-12 h-12 bg-white rounded-2xl shadow-lg flex items-center justify-center text-violet-700 z-10 hover:bg-slate-50"
-        >
-          <Navigation className="w-5 h-5" />
-        </button>
+        {userPosition && (
+          <button
+            onClick={() => openMapsLink(`delegacia de policia near ${userPosition.lat},${userPosition.lng}`)}
+            className="absolute bottom-4 right-4 w-12 h-12 bg-white rounded-2xl shadow-lg flex items-center justify-center text-violet-700 z-10 hover:bg-slate-50"
+          >
+            <Navigation className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       <div className="flex flex-col gap-4">
-        {stations.length === 0 ? (
+        {!userPosition ? (
           <div className="bg-white p-5 rounded-3xl border border-slate-100 text-slate-500 text-center">
-            Carregando delegacias próximas...
+            Ative o GPS para ver delegacias próximas à sua localização atual.
+          </div>
+        ) : stationsLoading ? (
+          <div className="bg-white p-5 rounded-3xl border border-slate-100 text-slate-500 text-center">
+            Buscando delegacias próximas...
+          </div>
+        ) : stationsError ? (
+          <div className="bg-white p-5 rounded-3xl border border-slate-100 text-red-600 text-center">
+            {stationsError}
+          </div>
+        ) : displayStations.length === 0 ? (
+          <div className="bg-white p-5 rounded-3xl border border-slate-100 text-slate-500 text-center">
+            Nenhuma delegacia encontrada próxima à sua localização.
           </div>
         ) : (
           <>

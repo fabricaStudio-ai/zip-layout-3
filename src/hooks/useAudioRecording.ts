@@ -15,6 +15,8 @@ export function useAudioRecording() {
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingTimeRef = useRef(0);
+  const isRecordingRef = useRef(false);
 
   const startRecording = useCallback(async () => {
     try {
@@ -27,6 +29,8 @@ export function useAudioRecording() {
       mediaRecorderRef.current = mediaRecorder;
 
       chunksRef.current = [];
+      recordingTimeRef.current = 0;
+      setRecordingTime(0);
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -37,8 +41,9 @@ export function useAudioRecording() {
       mediaRecorder.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
         const url = URL.createObjectURL(blob);
-        const duration = recordingTime;
+        const duration = recordingTimeRef.current;
 
+        isRecordingRef.current = false;
         setRecordedAudio({ blob, url, duration });
         setRecordingTime(0);
 
@@ -47,22 +52,25 @@ export function useAudioRecording() {
       };
 
       mediaRecorder.start(1000); // Collect data every second
+      isRecordingRef.current = true;
       setIsRecording(true);
 
       // Start timer
       timerRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
+        recordingTimeRef.current += 1;
+        setRecordingTime(recordingTimeRef.current);
       }, 1000);
 
     } catch (error) {
       console.error('Erro ao iniciar gravação:', error);
       throw new Error('Não foi possível acessar o microfone. Verifique as permissões.');
     }
-  }, [recordingTime]);
+  }, []);
 
   const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && isRecording) {
+    if (mediaRecorderRef.current && isRecordingRef.current) {
       mediaRecorderRef.current.stop();
+      isRecordingRef.current = false;
       setIsRecording(false);
 
       if (timerRef.current) {
@@ -70,9 +78,11 @@ export function useAudioRecording() {
         timerRef.current = null;
       }
     }
-  }, [isRecording]);
+  }, []);
 
   const resetRecording = useCallback(() => {
+    isRecordingRef.current = false;
+    recordingTimeRef.current = 0;
     setRecordedAudio(null);
     setRecordingTime(0);
   }, []);

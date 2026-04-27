@@ -1,11 +1,12 @@
-﻿import { useEffect, useState } from 'react';
-import { Shield, MapPin, Wifi, WifiOff, Home as HomeIcon, Users, Settings } from 'lucide-react';
+﻿import { useEffect, useState, useRef } from 'react';
+import { Shield, MapPin, Wifi, WifiOff, Home as HomeIcon, Users, Settings, Mic } from 'lucide-react';
 import { processAction, ActionType, AppContext, DecisionResponse } from './lib/decisionEngine';
 import { cn } from './lib/utils';
 import { useAuth } from './hooks/useAuth';
 import { useContacts } from './hooks/useContacts';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useAudioRecording } from './hooks/useAudioRecording';
+import { useStoredRecordings } from './hooks/useStoredRecordings';
 import { ScreenState } from './types';
 import ActiveEventScreen from './components/screens/ActiveEventScreen';
 import AuthScreen from './components/screens/AuthScreen';
@@ -15,6 +16,7 @@ import HelpNearbyScreen from './components/screens/HelpNearbyScreen';
 import HomeScreen from './components/screens/HomeScreen';
 import SettingsScreen from './components/screens/SettingsScreen';
 import ShareLocationScreen from './components/screens/ShareLocationScreen';
+import RecordingsScreen from './components/screens/RecordingsScreen';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenState>('HOME');
@@ -29,6 +31,9 @@ export default function App() {
   const { contacts, addContact, addContacts, toggleEmergencyContact, updateContact } = useContacts();
   const { userPosition, stations, locationStatus, gpsAvailable, refreshLocation } = useGeolocation();
   const { isRecording, recordingTime, recordedAudio, startRecording, stopRecording, resetRecording, formatTime } = useAudioRecording();
+  const { recordings, saveRecording, deleteRecording, deleteAllRecordings } = useStoredRecordings();
+
+  const recordingSavedRef = useRef(false);
 
   useEffect(() => {
     setContext(prev => ({
@@ -43,6 +48,7 @@ export default function App() {
     if (decision?.intents) {
       decision.intents.forEach(intent => {
         if (intent.type === 'START_AUDIO_RECORDING') {
+          recordingSavedRef.current = false;
           startRecording().catch(error => {
             console.error('Erro ao iniciar gravação:', error);
           });
@@ -50,6 +56,33 @@ export default function App() {
       });
     }
   }, [decision, startRecording]);
+
+  // Reset saved flag when recording starts
+  useEffect(() => {
+    if (isRecording) {
+      recordingSavedRef.current = false;
+    }
+  }, [isRecording]);
+
+  // Save recording when stopped
+  useEffect(() => {
+    if (recordedAudio && !isRecording && !recordingSavedRef.current) {
+      recordingSavedRef.current = true;
+      
+      saveRecording(
+        recordedAudio.blob,
+        recordedAudio.duration,
+        userPosition?.lat,
+        userPosition?.lng,
+        userPosition ? `${userPosition.lat.toFixed(5)}, ${userPosition.lng.toFixed(5)}` : undefined
+      ).then(() => {
+        resetRecording();
+      }).catch(error => {
+        console.error('Erro ao salvar gravação:', error);
+        recordingSavedRef.current = false;
+      });
+    }
+  }, [recordedAudio, isRecording, saveRecording, resetRecording, userPosition]);
 
   const handleAction = (action: ActionType) => {
     const response = processAction(action, context);
@@ -172,10 +205,19 @@ export default function App() {
 
         {currentScreen === 'SETTINGS' && <SettingsScreen onBack={() => setCurrentScreen('HOME')} />}
 
+        {currentScreen === 'RECORDINGS' && (
+          <RecordingsScreen
+            recordings={recordings}
+            onDelete={deleteRecording}
+            onDeleteAll={deleteAllRecordings}
+            onBack={() => setCurrentScreen('HOME')}
+          />
+        )}
+
         {currentScreen === 'ENDED' && <EventEndedScreen contacts={contacts} />}
       </main>
 
-      <nav className="absolute bottom-0 w-full bg-white border-t border-slate-100 px-6 py-3 flex justify-between items-center z-20">
+      <nav className="absolute bottom-0 w-full bg-white border-t border-slate-100 px-3 py-3 flex justify-between items-center z-20">
         <button
           onClick={() => setCurrentScreen('HOME')}
           className={cn('flex flex-col items-center gap-1', currentScreen === 'HOME' ? 'text-violet-700' : 'text-slate-400')}
@@ -184,6 +226,21 @@ export default function App() {
             <HomeIcon className="w-6 h-6" />
           </div>
           <span className="text-[10px] font-semibold tracking-wider uppercase">Home</span>
+        </button>
+
+        <button
+          onClick={() => setCurrentScreen('RECORDINGS')}
+          className={cn('flex flex-col items-center gap-1 relative', currentScreen === 'RECORDINGS' ? 'text-violet-700' : 'text-slate-400')}
+        >
+          <div className={cn('p-2 rounded-xl', currentScreen === 'RECORDINGS' && 'bg-violet-50')}>
+            <Mic className="w-6 h-6" />
+          </div>
+          {recordings.length > 0 && (
+            <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+              {recordings.length > 9 ? '9+' : recordings.length}
+            </div>
+          )}
+          <span className="text-[10px] font-semibold tracking-wider uppercase">Gravações</span>
         </button>
 
         <button

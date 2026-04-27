@@ -5,6 +5,7 @@ import { cn } from './lib/utils';
 import { useAuth } from './hooks/useAuth';
 import { useContacts } from './hooks/useContacts';
 import { useGeolocation } from './hooks/useGeolocation';
+import { useAudioRecording } from './hooks/useAudioRecording';
 import { ScreenState } from './types';
 import ActiveEventScreen from './components/screens/ActiveEventScreen';
 import AuthScreen from './components/screens/AuthScreen';
@@ -25,8 +26,9 @@ export default function App() {
   });
 
   const { user, loading, logout } = useAuth();
-  const { contacts, addContact, addContacts, toggleEmergencyContact } = useContacts();
+  const { contacts, addContact, addContacts, toggleEmergencyContact, updateContact } = useContacts();
   const { userPosition, stations, locationStatus, gpsAvailable, refreshLocation } = useGeolocation();
+  const { isRecording, recordingTime, recordedAudio, startRecording, stopRecording, resetRecording, formatTime } = useAudioRecording();
 
   useEffect(() => {
     setContext(prev => ({
@@ -35,6 +37,19 @@ export default function App() {
       contatos_configurados: contacts.length > 0,
     }));
   }, [contacts.length, gpsAvailable]);
+
+  // Handle audio recording intents
+  useEffect(() => {
+    if (decision?.intents) {
+      decision.intents.forEach(intent => {
+        if (intent.type === 'START_AUDIO_RECORDING') {
+          startRecording().catch(error => {
+            console.error('Erro ao iniciar gravação:', error);
+          });
+        }
+      });
+    }
+  }, [decision, startRecording]);
 
   const handleAction = (action: ActionType) => {
     const response = processAction(action, context);
@@ -114,6 +129,10 @@ export default function App() {
             contacts={contacts}
             userPosition={userPosition}
             gpsAvailable={gpsAvailable}
+            isRecording={isRecording}
+            recordingTime={recordingTime}
+            formatTime={formatTime}
+            onStopRecording={stopRecording}
           />
         )}
 
@@ -146,6 +165,7 @@ export default function App() {
               setCurrentScreen('HOME');
             }}
             onToggleEmergency={toggleEmergencyContact}
+            onUpdateContact={updateContact}
             onBack={() => setCurrentScreen('HOME')}
           />
         )}

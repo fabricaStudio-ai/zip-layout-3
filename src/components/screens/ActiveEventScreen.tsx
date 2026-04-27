@@ -1,4 +1,4 @@
-import { CheckCircle2, Mic, MapPin, Send, Shield, Phone, X } from 'lucide-react';
+import { CheckCircle2, Mic, MapPin, Send, Shield, Phone, X, Square } from 'lucide-react';
 import { ActionType, DecisionResponse } from '../../lib/decisionEngine';
 import { Contact, GeoPosition } from '../../types';
 import { DEFAULT_LOCATION } from '../../constants/policeStations';
@@ -10,9 +10,13 @@ type ActiveEventScreenProps = {
   contacts: Contact[];
   userPosition?: GeoPosition | null;
   gpsAvailable?: boolean;
+  isRecording?: boolean;
+  recordingTime?: number;
+  formatTime?: (seconds: number) => string;
+  onStopRecording?: () => void;
 };
 
-export default function ActiveEventScreen({ onAction, decision, contacts, userPosition }: ActiveEventScreenProps) {
+export default function ActiveEventScreen({ onAction, decision, contacts, userPosition, isRecording, recordingTime, formatTime, onStopRecording }: ActiveEventScreenProps) {
   const primaryContact = contacts.find(contact => contact.emergency) ?? (contacts.length ? contacts[0] : null);
 
   const mapLocation = userPosition || DEFAULT_LOCATION;
@@ -42,12 +46,28 @@ export default function ActiveEventScreen({ onAction, decision, contacts, userPo
       {decision?.iniciar_gravacao && (
         <div className="bg-white p-4 rounded-2xl flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center text-violet-700">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-violet-700 ${isRecording ? 'bg-red-100 animate-pulse' : 'bg-violet-100'}`}>
               <Mic className="w-5 h-5" />
             </div>
-            <span className="font-semibold">Gravando áudio</span>
+            <div>
+              <span className="font-semibold">Gravando áudio</span>
+              {isRecording && <div className="text-xs text-red-600">● REC</div>}
+            </div>
           </div>
-          <span className="text-slate-500 font-mono text-sm">04:12</span>
+          <div className="flex items-center gap-3">
+            <span className="text-slate-500 font-mono text-sm">
+              {formatTime ? formatTime(recordingTime || 0) : '00:00'}
+            </span>
+            {isRecording && onStopRecording && (
+              <button
+                onClick={onStopRecording}
+                className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600 transition-colors"
+                title="Parar gravação"
+              >
+                <Square className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
       )}
 

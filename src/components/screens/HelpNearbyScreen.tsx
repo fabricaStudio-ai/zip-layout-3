@@ -12,7 +12,7 @@ type HelpNearbyScreenProps = {
   onRefresh: () => void;
 };
 
-export default function HelpNearbyScreen({ stations, locationStatus, userPosition, onRefresh }: HelpNearbyScreenProps) {
+export default function HelpNearbyScreen({ locationStatus, userPosition, onRefresh }: HelpNearbyScreenProps) {
   const [nearbyStations, setNearbyStations] = useState<StationWithDistance[]>([]);
   const [stationsLoading, setStationsLoading] = useState(false);
   const [stationsError, setStationsError] = useState<string | null>(null);
@@ -22,8 +22,8 @@ export default function HelpNearbyScreen({ stations, locationStatus, userPositio
     : undefined;
 
   const centerText = userPosition
-    ? `Centralizado em sua localização atual: ${userPosition.lat.toFixed(5)}, ${userPosition.lng.toFixed(5)}`
-    : 'Ative o GPS para centralizar no seu local e buscar delegacias próximas.';
+    ? `Sua localização atual: ${userPosition.lat.toFixed(5)}, ${userPosition.lng.toFixed(5)}`
+    : 'Ative o GPS para ver sua localização atual e buscar delegacias próximas.';
 
   useEffect(() => {
     if (!userPosition) {
@@ -43,9 +43,11 @@ export default function HelpNearbyScreen({ stations, locationStatus, userPositio
         );
 
         setNearbyStations(resultsWithDistance);
+        console.log(`✅ API Overpass: Encontradas ${results.length} delegacias próximas à localização ${userPosition.lat.toFixed(4)}, ${userPosition.lng.toFixed(4)}`);
       })
-      .catch(() => {
-        setStationsError('Não foi possível buscar delegacias próximas agora.');
+      .catch((error) => {
+        console.error('❌ API Overpass falhou:', error);
+        setStationsError(error.message || 'Não foi possível buscar delegacias próximas agora.');
         setNearbyStations([]);
       })
       .finally(() => {
@@ -114,7 +116,11 @@ export default function HelpNearbyScreen({ stations, locationStatus, userPositio
           </div>
         ) : stationsLoading ? (
           <div className="bg-white p-5 rounded-3xl border border-slate-100 text-slate-500 text-center">
-            Buscando delegacias próximas...
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <div className="w-4 h-4 border-2 border-violet-600 border-t-transparent rounded-full animate-spin"></div>
+              <span>Buscando delegacias próximas...</span>
+            </div>
+            <p className="text-sm">Usando dados da API Overpass para localização precisa</p>
           </div>
         ) : stationsError ? (
           <div className="bg-white p-5 rounded-3xl border border-slate-100 text-red-600 text-center">
@@ -126,7 +132,12 @@ export default function HelpNearbyScreen({ stations, locationStatus, userPositio
           </div>
         ) : (
           <>
-            <div className="text-slate-500 text-sm mb-3">{headerText}</div>
+            <div className="text-slate-500 text-sm mb-3">
+              {headerText}
+              <span className="text-violet-600 font-medium ml-1">
+                ({nearbyStations.length} encontrada{nearbyStations.length !== 1 ? 's' : ''})
+              </span>
+            </div>
             {displayStations.map(station => (
               <div key={station.id} className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
                 <div className="flex justify-between items-start mb-4 gap-3">

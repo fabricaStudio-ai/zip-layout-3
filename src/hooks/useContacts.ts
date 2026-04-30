@@ -31,6 +31,14 @@ export function useContacts() {
     setContacts(prev => [...newContacts, ...prev]);
   };
 
+  const updateContact = (id: string, updates: Partial<Contact>) => {
+    setContacts(prev =>
+      prev.map(contact =>
+        contact.id === id ? { ...contact, ...updates } : contact
+      )
+    );
+  };
+
   const toggleEmergencyContact = (id: string) => {
     setContacts(prev =>
       prev.map(contact =>
@@ -44,5 +52,6 @@ export function useContacts() {
     addContact,
     addContacts,
     toggleEmergencyContact,
+    updateContact,
   };
 }

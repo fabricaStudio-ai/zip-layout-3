@@ -1,4 +1,4 @@
-export type ScreenState = 'HOME' | 'ACTIVE' | 'SHARE_LOC' | 'HELP_NEARBY' | 'CONTACTS' | 'SETTINGS' | 'ENDED';
+export type ScreenState = 'HOME' | 'ACTIVE' | 'SHARE_LOC' | 'HELP_NEARBY' | 'CONTACTS' | 'SETTINGS' | 'ENDED' | 'RECORDINGS';
 
 export type Contact = {
   id: string;
@@ -25,4 +25,16 @@ export type StationWithDistance = PoliceStation & {
 export type GeoPosition = {
   lat: number;
   lng: number;
+};
+
+export type StoredRecording = {
+  id: string;
+  timestamp: number;
+  date: string;
+  time: string;
+  duration: number;
+  latitude?: number;
+  longitude?: number;
+  location?: string;
+  dataUrl: string;
 };

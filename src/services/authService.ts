@@ -6,6 +6,7 @@ import {
   GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
+  updateProfile,
   type User,
   type AuthError,
 } from 'firebase/auth';
@@ -28,8 +29,13 @@ export function mapFirebaseUser(user: User | null): AuthUser | null {
   };
 }
 
-export async function registerWithEmail(email: string, password: string) {
+export async function registerWithEmail(email: string, password: string, displayName?: string) {
   const result = await createUserWithEmailAndPassword(auth, email, password);
+
+  if (displayName) {
+    await updateProfile(result.user, { displayName });
+  }
+
   return mapFirebaseUser(result.user);
 }
 

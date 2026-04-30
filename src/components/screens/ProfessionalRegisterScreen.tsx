@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { AlertCircle, CheckCircle2, Lock, Mail } from 'lucide-react';
-import { loginWithEmail, loginWithGoogle } from '../../services/authService';
+import { AlertCircle, CheckCircle2, Lock, Mail, User } from 'lucide-react';
+import { registerWithEmail } from '../../services/authService';
 
-type AuthScreenProps = {
+type ProfessionalRegisterScreenProps = {
   onSuccess: () => void;
-  onGoToProfessionalRegister: () => void;
+  onBack: () => void;
 };
 
-export default function AuthScreen({ onSuccess, onGoToProfessionalRegister }: AuthScreenProps) {
+export default function ProfessionalRegisterScreen({ onSuccess, onBack }: ProfessionalRegisterScreenProps) {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -19,32 +20,18 @@ export default function AuthScreen({ onSuccess, onGoToProfessionalRegister }: Au
     event.preventDefault();
     resetError();
 
-    if (!email.trim() || !password.trim()) {
-      setError('Informe e-mail e senha para continuar.');
+    if (!name.trim() || !email.trim() || !password.trim()) {
+      setError('Informe nome, e-mail e senha para continuar.');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      await loginWithEmail(email.trim(), password);
+      await registerWithEmail(email.trim(), password, name.trim());
       onSuccess();
     } catch (err: any) {
-      setError(err?.message || 'Falha ao autenticar. Verifique suas credenciais.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    resetError();
-    setIsSubmitting(true);
-
-    try {
-      await loginWithGoogle();
-      onSuccess();
-    } catch (err: any) {
-      setError(err?.message || 'Falha ao autenticar com Google.');
+      setError(err?.message || 'Falha ao criar a conta. Tente novamente.');
     } finally {
       setIsSubmitting(false);
     }
@@ -52,20 +39,34 @@ export default function AuthScreen({ onSuccess, onGoToProfessionalRegister }: Au
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex items-center justify-center px-6 py-10">
-      <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-xl p-8">
+      <div className="w-full max-w-sm bg-white rounded-3xl border border-slate-200 shadow-xl p-8">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 bg-violet-100 rounded-3xl flex items-center justify-center text-violet-700">
             <CheckCircle2 className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">Acesse sua conta</h1>
-            <p className="text-sm text-slate-500">Use seu e-mail para entrar ou criar uma conta segura.</p>
+            <h1 className="text-2xl font-bold">Cadastro</h1>
+            <p className="text-sm text-slate-500">Complete seus dados e acesse o app pelo seu nome.</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <label className="block">
-            <span className="text-sm font-semibold text-slate-700">E-mail</span>
+            <span className="text-sm font-semibold text-slate-700">Nome completo</span>
+            <div className="mt-2 flex items-center gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <User className="w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={name}
+                onChange={event => setName(event.target.value)}
+                placeholder="Seu nome completo"
+                className="w-full bg-transparent text-sm outline-none"
+              />
+            </div>
+          </label>
+
+          <label className="block">
+            <span className="text-sm font-semibold text-slate-700">E-mail profissional</span>
             <div className="mt-2 flex items-center gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3">
               <Mail className="w-4 h-4 text-slate-400" />
               <input
@@ -104,27 +105,18 @@ export default function AuthScreen({ onSuccess, onGoToProfessionalRegister }: Au
             disabled={isSubmitting}
             className="w-full rounded-3xl bg-violet-700 px-5 py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-violet-700/20 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Entrar
-          </button>
-
-          <button
-            type="button"
-            onClick={handleGoogleLogin}
-            disabled={isSubmitting}
-            className="w-full rounded-3xl border border-slate-200 bg-white px-5 py-4 text-sm font-bold uppercase tracking-widest text-slate-700 shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Entrar com Google
+            Criar conta
           </button>
         </form>
 
-        <div className="mt-4 text-center text-sm text-slate-500">
-          Não possui conta?{' '}
+        <div className="mt-6 text-center text-sm text-slate-500">
+          Já possui conta?
           <button
             type="button"
-            onClick={onGoToProfessionalRegister}
-            className="font-semibold text-violet-700 hover:text-violet-800"
+            onClick={onBack}
+            className="ml-2 font-semibold text-violet-700 hover:text-violet-800"
           >
-            Cadastre-se aqui
+            Entrar agora
           </button>
         </div>
       </div>

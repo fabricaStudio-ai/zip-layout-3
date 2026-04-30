@@ -12,6 +12,7 @@ type HomeScreenProps = {
 };
 
 export default function HomeScreen({ userName, onAction, contacts, onOpenContacts }: HomeScreenProps) {
+  console.log(userName);
   const greetingName = userName ? userName.split('@')[0] : 'Maria';
 
   return (

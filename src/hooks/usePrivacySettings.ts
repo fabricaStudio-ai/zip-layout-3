@@ -35,7 +35,8 @@ export function usePrivacySettings() {
           setSettings(docSnap.data() as PrivacySettings);
         } else {
           // Create default settings
-          await setDoc(docRef, defaultSettings);
+          await setDoc(docRef, defaultSettings, { merge: true });
+          setSettings(defaultSettings);
         }
       } catch (error) {
         console.error('Error loading privacy settings:', error);
@@ -48,16 +49,18 @@ export function usePrivacySettings() {
   }, [user]);
 
   const updateSettings = async (newSettings: Partial<PrivacySettings>) => {
-    if (!user) return;
+    if (!user) throw new Error('Usuário não autenticado');
 
     try {
       const updatedSettings = { ...settings, ...newSettings };
       setSettings(updatedSettings);
 
       const docRef = doc(db, 'privacy_settings', user.uid);
-      await setDoc(docRef, updatedSettings);
+      await setDoc(docRef, updatedSettings, { merge: true });
+      return updatedSettings;
     } catch (error) {
       console.error('Error updating privacy settings:', error);
+      throw error;
     }
   };
 

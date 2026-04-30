@@ -44,7 +44,7 @@ export default function App() {
   const { recordings, saveRecording, deleteRecording, deleteAllRecordings } = useStoredRecordings();
 
   const recordingSavedRef = useRef(false);
-  const { settings: privacySettings } = usePrivacySettings();
+  const { settings: privacySettings, loading: privacyLoading, updateSettings: updatePrivacySettings } = usePrivacySettings();
 
   useEffect(() => {
     setContext(prev => ({
@@ -53,6 +53,21 @@ export default function App() {
       contatos_configurados: contacts.length > 0,
     }));
   }, [contacts.length, gpsAvailable]);
+
+  const activateInvisibleMode = () => {
+    setIsInvisibleMode(true);
+    setCurrentScreen('HOME'); // Reset to home to clear sensitive content
+    // Additional cleanup can be added here
+  };
+
+  const deactivateInvisibleMode = () => {
+    setIsInvisibleMode(false);
+    setShowPinScreen(false);
+  };
+
+  const requestExitInvisibleMode = () => {
+    setShowPinScreen(true);
+  };
 
   // Triple tap detection for invisible mode
   useTripleTap(
@@ -130,21 +145,6 @@ export default function App() {
     if (nextScreen) {
       setCurrentScreen(nextScreen);
     }
-  };
-
-  const activateInvisibleMode = () => {
-    setIsInvisibleMode(true);
-    setCurrentScreen('HOME'); // Reset to home to clear sensitive content
-    // Additional cleanup can be added here
-  };
-
-  const deactivateInvisibleMode = () => {
-    setIsInvisibleMode(false);
-    setShowPinScreen(false);
-  };
-
-  const requestExitInvisibleMode = () => {
-    setShowPinScreen(true);
   };
 
   if (loading) {
@@ -278,7 +278,12 @@ export default function App() {
         {currentScreen === 'SETTINGS' && <SettingsScreen onBack={() => setCurrentScreen('HOME')} onOpenPrivacySettings={() => setCurrentScreen('PRIVACY_SETTINGS')} />}
 
         {currentScreen === 'PRIVACY_SETTINGS' && (
-          <PrivacySettingsScreen onBack={() => setCurrentScreen('SETTINGS')} />
+          <PrivacySettingsScreen
+            onBack={() => setCurrentScreen('SETTINGS')}
+            settings={privacySettings}
+            loading={privacyLoading}
+            updateSettings={updatePrivacySettings}
+          />
         )}
 
         {currentScreen === 'RECORDINGS' && (

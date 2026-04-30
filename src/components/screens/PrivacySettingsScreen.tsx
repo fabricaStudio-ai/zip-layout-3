@@ -1,18 +1,39 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Shield, ArrowLeft, Settings } from 'lucide-react';
-import { usePrivacySettings, PrivacySettings } from '../../hooks/usePrivacySettings';
+import { PrivacySettings } from '../../hooks/usePrivacySettings';
 
 type PrivacySettingsScreenProps = {
   onBack: () => void;
+  settings: PrivacySettings;
+  loading: boolean;
+  updateSettings: (newSettings: Partial<PrivacySettings>) => Promise<void>;
 };
 
-export default function PrivacySettingsScreen({ onBack }: PrivacySettingsScreenProps) {
-  const { settings, updateSettings } = usePrivacySettings();
+export default function PrivacySettingsScreen({ onBack, settings, loading, updateSettings }: PrivacySettingsScreenProps) {
   const [localSettings, setLocalSettings] = useState<PrivacySettings>(settings);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  useEffect(() => {
+    setLocalSettings(settings);
+  }, [settings]);
 
   const handleSave = async () => {
-    await updateSettings(localSettings);
-    onBack();
+    if (loading || saving) return;
+    setSaveError('');
+    setSaving(true);
+
+    try {
+      await updateSettings(localSettings);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2500);
+      onBack();
+    } catch (error: any) {
+      setSaveError(error?.message || 'Falha ao salvar configurações.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const updateSetting = <K extends keyof PrivacySettings>(
@@ -110,15 +131,28 @@ export default function PrivacySettingsScreen({ onBack }: PrivacySettingsScreenP
               </div>
             </div>
           </div>
+
+          {saveError && (
+            <div className="rounded-3xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+              {saveError}
+            </div>
+          )}
+
+          {saveSuccess && (
+            <div className="rounded-3xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-700">
+              Configurações salvas com sucesso.
+            </div>
+          )}
         </div>
       </main>
 
       <footer className="p-6 border-t border-slate-100">
         <button
           onClick={handleSave}
-          className="w-full rounded-3xl bg-violet-700 px-5 py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-violet-700/20"
+          disabled={loading}
+          className="w-full rounded-3xl bg-violet-700 px-5 py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-violet-700/20 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Salvar Configurações
+          {loading ? 'Carregando...' : 'Salvar Configurações'}
         </button>
       </footer>
     </div>

@@ -16,10 +16,12 @@ import HelpNearbyScreen from './components/screens/HelpNearbyScreen';
 import HomeScreen from './components/screens/HomeScreen';
 import SettingsScreen from './components/screens/SettingsScreen';
 import ShareLocationScreen from './components/screens/ShareLocationScreen';
+import ProfessionalRegisterScreen from './components/screens/ProfessionalRegisterScreen';
 import RecordingsScreen from './components/screens/RecordingsScreen';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenState>('HOME');
+  const [showProfessionalRegister, setShowProfessionalRegister] = useState(false);
   const [decision, setDecision] = useState<DecisionResponse | null>(null);
   const [context, setContext] = useState<AppContext>({
     internet_disponivel: true,
@@ -116,7 +118,17 @@ export default function App() {
   }
 
   if (!user) {
-    return <AuthScreen onSuccess={() => undefined} />;
+    return showProfessionalRegister ? (
+      <ProfessionalRegisterScreen
+        onSuccess={() => setShowProfessionalRegister(false)}
+        onBack={() => setShowProfessionalRegister(false)}
+      />
+    ) : (
+      <AuthScreen
+        onSuccess={() => undefined}
+        onGoToProfessionalRegister={() => setShowProfessionalRegister(true)}
+      />
+    );
   }
 
   return (
@@ -148,7 +160,7 @@ export default function App() {
       <main className="flex-1 overflow-y-auto pb-24">
         {currentScreen === 'HOME' && (
           <HomeScreen
-            userName={user?.email ?? undefined}
+            userName={user?.displayName ?? user?.email ?? undefined}
             onAction={handleAction}
             contacts={contacts}
             onOpenContacts={() => setCurrentScreen('CONTACTS')}

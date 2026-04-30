@@ -1,4 +1,4 @@
-export type ScreenState = 'HOME' | 'ACTIVE' | 'SHARE_LOC' | 'HELP_NEARBY' | 'CONTACTS' | 'SETTINGS' | 'ENDED' | 'RECORDINGS';
+export type ScreenState = 'HOME' | 'ACTIVE' | 'SHARE_LOC' | 'HELP_NEARBY' | 'CONTACTS' | 'SETTINGS' | 'ENDED' | 'RECORDINGS' | 'PRIVACY_SETTINGS';
 
 export type Contact = {
   id: string;

@@ -7,6 +7,9 @@ import { useContacts } from './hooks/useContacts';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useAudioRecording } from './hooks/useAudioRecording';
 import { useStoredRecordings } from './hooks/useStoredRecordings';
+import { useTripleTap } from './hooks/useTripleTap';
+import { useKeyboardShortcut } from './hooks/useKeyboardShortcut';
+import { usePrivacySettings } from './hooks/usePrivacySettings';
 import { ScreenState } from './types';
 import ActiveEventScreen from './components/screens/ActiveEventScreen';
 import AuthScreen from './components/screens/AuthScreen';
@@ -18,10 +21,15 @@ import SettingsScreen from './components/screens/SettingsScreen';
 import ShareLocationScreen from './components/screens/ShareLocationScreen';
 import ProfessionalRegisterScreen from './components/screens/ProfessionalRegisterScreen';
 import RecordingsScreen from './components/screens/RecordingsScreen';
+import CalculatorScreen from './components/screens/CalculatorScreen';
+import PinScreen from './components/screens/PinScreen';
+import PrivacySettingsScreen from './components/screens/PrivacySettingsScreen';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenState>('HOME');
   const [showProfessionalRegister, setShowProfessionalRegister] = useState(false);
+  const [isInvisibleMode, setIsInvisibleMode] = useState(false);
+  const [showPinScreen, setShowPinScreen] = useState(false);
   const [decision, setDecision] = useState<DecisionResponse | null>(null);
   const [context, setContext] = useState<AppContext>({
     internet_disponivel: true,
@@ -36,6 +44,7 @@ export default function App() {
   const { recordings, saveRecording, deleteRecording, deleteAllRecordings } = useStoredRecordings();
 
   const recordingSavedRef = useRef(false);
+  const { settings: privacySettings } = usePrivacySettings();
 
   useEffect(() => {
     setContext(prev => ({
@@ -44,6 +53,20 @@ export default function App() {
       contatos_configurados: contacts.length > 0,
     }));
   }, [contacts.length, gpsAvailable]);
+
+  // Triple tap detection for invisible mode
+  useTripleTap(
+    activateInvisibleMode,
+    { x: window.innerWidth - 100, y: 0, width: 100, height: 100 },
+    privacySettings.activationMethod === 'triple_tap'
+  );
+
+  // Keyboard shortcut for invisible mode
+  useKeyboardShortcut(
+    'ctrl+shift+h',
+    activateInvisibleMode,
+    privacySettings.activationMethod === 'keyboard_shortcut'
+  );
 
   // Handle audio recording intents
   useEffect(() => {
@@ -109,6 +132,21 @@ export default function App() {
     }
   };
 
+  const activateInvisibleMode = () => {
+    setIsInvisibleMode(true);
+    setCurrentScreen('HOME'); // Reset to home to clear sensitive content
+    // Additional cleanup can be added here
+  };
+
+  const deactivateInvisibleMode = () => {
+    setIsInvisibleMode(false);
+    setShowPinScreen(false);
+  };
+
+  const requestExitInvisibleMode = () => {
+    setShowPinScreen(true);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-900 flex items-center justify-center">
@@ -131,8 +169,30 @@ export default function App() {
     );
   }
 
+  if (isInvisibleMode) {
+    if (showPinScreen) {
+      return (
+        <PinScreen
+          onSuccess={deactivateInvisibleMode}
+          onCancel={() => setShowPinScreen(false)}
+          expectedPin={privacySettings.pinCode}
+        />
+      );
+    }
+    return <CalculatorScreen onExit={requestExitInvisibleMode} />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col max-w-md mx-auto shadow-xl overflow-hidden relative">
+      {/* Invisible floating button for activation */}
+      {privacySettings.activationMethod === 'floating_button' && (
+        <button
+          onClick={activateInvisibleMode}
+          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 opacity-0 z-50"
+          aria-hidden="true"
+        />
+      )}
+
       <header className="flex items-center justify-between px-6 py-4 bg-slate-50 z-10">
         <div className="flex items-center gap-2 text-violet-700 font-semibold text-lg">
           <Shield className="w-6 h-6 fill-violet-700" />
@@ -215,7 +275,11 @@ export default function App() {
           />
         )}
 
-        {currentScreen === 'SETTINGS' && <SettingsScreen onBack={() => setCurrentScreen('HOME')} />}
+        {currentScreen === 'SETTINGS' && <SettingsScreen onBack={() => setCurrentScreen('HOME')} onOpenPrivacySettings={() => setCurrentScreen('PRIVACY_SETTINGS')} />}
+
+        {currentScreen === 'PRIVACY_SETTINGS' && (
+          <PrivacySettingsScreen onBack={() => setCurrentScreen('SETTINGS')} />
+        )}
 
         {currentScreen === 'RECORDINGS' && (
           <RecordingsScreen

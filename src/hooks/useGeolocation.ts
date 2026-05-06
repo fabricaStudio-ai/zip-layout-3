@@ -33,7 +33,7 @@ export function useGeolocation() {
       () => {
         loadDefaultStations();
       },
-      { enableHighAccuracy: true, timeout: 10000 },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     );
   }, [loadDefaultStations]);
 

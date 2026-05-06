@@ -3,6 +3,7 @@ import { Map as MapIcon, Navigation, Shield } from 'lucide-react';
 import { PoliceStation } from '../../types';
 import { DEFAULT_LOCATION } from '../../constants/policeStations';
 import { buildStationsWithDistance, formatDistance } from '../../lib/geoUtils';
+import { buildStaticMapImageUrl } from '../../lib/utils';
 import { fetchNearbyPoliceStations } from '../../lib/policeSearch';
 
 type StationWithDistance = PoliceStation & { distanceKm: number };
@@ -19,7 +20,8 @@ export default function HelpNearbyScreen({ stations, locationStatus, userPositio
   const [stationsError, setStationsError] = useState<string | null>(null);
 
   const mapCenter = userPosition || DEFAULT_LOCATION;
-  const mapUrl = `https://maps.google.com/maps?q=delegacia+de+policia&ll=${mapCenter.lat},${mapCenter.lng}&z=13&output=embed`;
+  const mapUrl = `https://maps.google.com/maps?q=delegacia+de+policia+near+${mapCenter.lat},${mapCenter.lng}&z=13&output=embed`;
+  const staticMapUrl = buildStaticMapImageUrl(mapCenter, 800, 480, 13);
 
   const centerText = userPosition
     ? `Centralizado em sua localização atual: ${userPosition.lat.toFixed(5)}, ${userPosition.lng.toFixed(5)}`
@@ -89,14 +91,22 @@ export default function HelpNearbyScreen({ stations, locationStatus, userPositio
       <div className="text-slate-500 text-sm mb-2">{centerText}</div>
 
       <div className="bg-slate-200 h-64 rounded-3xl relative overflow-hidden flex items-center justify-center -mx-2 shadow-inner">
-        <iframe
-          width="100%"
-          height="100%"
-          style={{ border: 0 }}
-          loading="lazy"
-          allowFullScreen
-          referrerPolicy="no-referrer-when-downgrade"
-          src={mapUrl}
+        <div className="hidden sm:block w-full h-full">
+          <iframe
+            title="Mapa de delegacias próximas"
+            width="100%"
+            height="100%"
+            style={{ border: 0 }}
+            loading="lazy"
+            allowFullScreen
+            referrerPolicy="no-referrer-when-downgrade"
+            src={mapUrl}
+          />
+        </div>
+        <img
+          className="block sm:hidden w-full h-full object-cover"
+          src={staticMapUrl}
+          alt="Mapa estático da região"
         />
         {userPosition && (
           <button

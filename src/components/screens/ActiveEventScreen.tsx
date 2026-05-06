@@ -1,7 +1,8 @@
 import { CheckCircle2, Mic, MapPin, Send, Shield, Phone, X, Square } from 'lucide-react';
 import { ActionType, DecisionResponse } from '../../lib/decisionEngine';
 import { Contact, GeoPosition } from '../../types';
-import { buildEmbedMapUrl, buildMapLocationLink, formatLocationDisplay } from '../../lib/utils';
+import { DEFAULT_LOCATION } from '../../constants/policeStations';
+import { buildMapLocationLink, buildStaticMapImageUrl, formatLocationDisplay } from '../../lib/utils';
 
 type ActiveEventScreenProps = {
   onAction: (action: ActionType) => void;
@@ -29,8 +30,9 @@ export default function ActiveEventScreen({ onAction, decision, contacts, userPo
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
-  const mapUrl = userPosition ? buildEmbedMapUrl(userPosition) : undefined;
-  const locationWarning = userPosition ? 'Monitoramento em tempo real' : 'Ative o GPS para exibir sua localização atual.';
+  const mapUrl = `https://maps.google.com/maps?q=${mapLocation.lat},${mapLocation.lng}&z=16&output=embed`;
+  const staticMapUrl = buildStaticMapImageUrl(mapLocation, 800, 480, 16);
+  const locationWarning = userPosition ? 'Monitoramento em tempo real' : 'GPS inativo. Exibindo localização padrão.';
 
   return (
     <div className="px-6 py-4 flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -84,7 +86,7 @@ export default function ActiveEventScreen({ onAction, decision, contacts, userPo
       )}
 
       <div className="relative bg-slate-200 h-64 rounded-3xl overflow-hidden shadow-sm">
-        {mapUrl ? (
+        <div className="hidden sm:block w-full h-full">
           <iframe
             title="Mapa de monitoramento"
             src={mapUrl}
@@ -95,11 +97,12 @@ export default function ActiveEventScreen({ onAction, decision, contacts, userPo
             allowFullScreen
             referrerPolicy="no-referrer-when-downgrade"
           />
-        ) : (
-          <div className="h-full flex items-center justify-center text-slate-500 text-sm px-4 text-center">
-            Ative o GPS para visualizar sua localização atual no mapa.
-          </div>
-        )}
+        </div>
+        <img
+          className="block sm:hidden w-full h-full object-cover"
+          src={staticMapUrl}
+          alt="Mapa estático da localização"
+        />
         <div className="absolute bottom-4 left-4 bg-white/90 px-3 py-2 rounded-full text-sm font-semibold text-slate-900 shadow-sm">
           {locationWarning}
         </div>

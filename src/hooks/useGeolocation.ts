@@ -47,7 +47,7 @@ export function useGeolocation() {
       () => {
         loadDefaultStations();
       },
-      { timeout: 8000 },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     );
   }, [loadDefaultStations, updateStationDistances]);
 

@@ -2,7 +2,7 @@ import { CheckCircle2, Mic, MapPin, Send, Shield, Phone, X, Square } from 'lucid
 import { ActionType, DecisionResponse } from '../../lib/decisionEngine';
 import { Contact, GeoPosition } from '../../types';
 import { DEFAULT_LOCATION } from '../../constants/policeStations';
-import { buildMapLocationLink, formatLocationDisplay } from '../../lib/utils';
+import { buildMapLocationLink, buildStaticMapImageUrl, formatLocationDisplay } from '../../lib/utils';
 
 type ActiveEventScreenProps = {
   onAction: (action: ActionType) => void;
@@ -32,6 +32,7 @@ export default function ActiveEventScreen({ onAction, decision, contacts, userPo
   };
 
   const mapUrl = `https://maps.google.com/maps?q=${mapLocation.lat},${mapLocation.lng}&z=16&output=embed`;
+  const staticMapUrl = buildStaticMapImageUrl(mapLocation, 800, 480, 16);
   const locationWarning = userPosition ? 'Monitoramento em tempo real' : 'GPS inativo. Exibindo localização padrão.';
 
   return (
@@ -86,15 +87,22 @@ export default function ActiveEventScreen({ onAction, decision, contacts, userPo
       )}
 
       <div className="relative bg-slate-200 h-64 rounded-3xl overflow-hidden shadow-sm">
-        <iframe
-          title="Mapa de monitoramento"
-          src={mapUrl}
-          width="100%"
-          height="100%"
-          style={{ border: 0 }}
-          loading="lazy"
-          allowFullScreen
-          referrerPolicy="no-referrer-when-downgrade"
+        <div className="hidden sm:block w-full h-full">
+          <iframe
+            title="Mapa de monitoramento"
+            src={mapUrl}
+            width="100%"
+            height="100%"
+            style={{ border: 0 }}
+            loading="lazy"
+            allowFullScreen
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+        </div>
+        <img
+          className="block sm:hidden w-full h-full object-cover"
+          src={staticMapUrl}
+          alt="Mapa estático da localização"
         />
         <div className="absolute bottom-4 left-4 bg-white/90 px-3 py-2 rounded-full text-sm font-semibold text-slate-900 shadow-sm">
           {locationWarning}

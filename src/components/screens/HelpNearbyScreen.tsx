@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Map as MapIcon, Navigation, Shield } from 'lucide-react';
 import { PoliceStation } from '../../types';
+import { DEFAULT_LOCATION } from '../../constants/policeStations';
 import { buildStationsWithDistance, formatDistance } from '../../lib/geoUtils';
 import { fetchNearbyPoliceStations } from '../../lib/policeSearch';
 
@@ -12,22 +13,21 @@ type HelpNearbyScreenProps = {
   onRefresh: () => void;
 };
 
-export default function HelpNearbyScreen({ locationStatus, userPosition, onRefresh }: HelpNearbyScreenProps) {
-  const [nearbyStations, setNearbyStations] = useState<StationWithDistance[]>([]);
+export default function HelpNearbyScreen({ stations, locationStatus, userPosition, onRefresh }: HelpNearbyScreenProps) {
+  const [nearbyStations, setNearbyStations] = useState<StationWithDistance[]>(stations);
   const [stationsLoading, setStationsLoading] = useState(false);
   const [stationsError, setStationsError] = useState<string | null>(null);
 
-  const mapUrl = userPosition
-    ? `https://maps.google.com/maps?q=delegacia+de+policia&ll=${userPosition.lat},${userPosition.lng}&z=13&output=embed`
-    : undefined;
+  const mapCenter = userPosition || DEFAULT_LOCATION;
+  const mapUrl = `https://maps.google.com/maps?q=delegacia+de+policia&ll=${mapCenter.lat},${mapCenter.lng}&z=13&output=embed`;
 
   const centerText = userPosition
-    ? `Sua localização atual: ${userPosition.lat.toFixed(5)}, ${userPosition.lng.toFixed(5)}`
-    : 'Ative o GPS para ver sua localização atual e buscar delegacias próximas.';
+    ? `Centralizado em sua localização atual: ${userPosition.lat.toFixed(5)}, ${userPosition.lng.toFixed(5)}`
+    : 'GPS não disponível. Exibindo área padrão para busca de delegacias.';
 
   useEffect(() => {
     if (!userPosition) {
-      setNearbyStations([]);
+      setNearbyStations(stations);
       setStationsError(null);
       setStationsLoading(false);
       return;
@@ -36,36 +36,35 @@ export default function HelpNearbyScreen({ locationStatus, userPosition, onRefre
     setStationsLoading(true);
     setStationsError(null);
 
-    fetchNearbyPoliceStations(userPosition, 5)
+    fetchNearbyPoliceStations(userPosition, 20)
       .then(results => {
         const resultsWithDistance = buildStationsWithDistance(userPosition, results).sort(
           (a, b) => a.distanceKm - b.distanceKm,
         );
 
-        setNearbyStations(resultsWithDistance);
-        console.log(`✅ API Overpass: Encontradas ${results.length} delegacias próximas à localização ${userPosition.lat.toFixed(4)}, ${userPosition.lng.toFixed(4)}`);
+        if (resultsWithDistance.length === 0) {
+          setStationsError('Nenhuma delegacia encontrada no serviço de mapas. Mostrando alternativas locais.');
+          setNearbyStations(stations.slice(0, 3));
+        } else {
+          setNearbyStations(resultsWithDistance);
+        }
       })
-      .catch((error) => {
-        console.error('❌ API Overpass falhou:', error);
-        setStationsError(error.message || 'Não foi possível buscar delegacias próximas agora.');
-        setNearbyStations([]);
+      .catch(() => {
+        setStationsError('Não foi possível buscar delegacias próximas agora. Mostrando alternativas locais.');
+        setNearbyStations(stations.slice(0, 3));
       })
       .finally(() => {
         setStationsLoading(false);
       });
-  }, [userPosition]);
+  }, [userPosition, stations]);
 
   const nearby = nearbyStations.filter(station => station.distanceKm <= 7);
-  const displayStations = userPosition
-    ? nearby.length > 0
-      ? nearby
-      : nearbyStations.slice(0, 3)
-    : [];
+  const displayStations = nearby.length > 0 ? nearby : nearbyStations.slice(0, 3);
   const headerText = userPosition
     ? nearby.length > 0
       ? 'Delegacias dentro de 7 km'
       : 'Delegacias próximas à sua localização'
-    : 'Ative o GPS para ver delegacias próximas à sua localização';
+    : 'Delegacias sugeridas com base na localização padrão';
 
   const openMapsLink = (query: string) => {
     window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`, '_blank');

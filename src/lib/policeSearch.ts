@@ -11,7 +11,7 @@ export async function fetchNearbyPoliceStations(
   way["amenity"="police"](around:${radius},${position.lat},${position.lng});
   relation["amenity"="police"](around:${radius},${position.lat},${position.lng});
 );
-out center ${limit};`;
+out center;`;
 
   const response = await fetch('https://overpass-api.de/api/interpreter', {
     method: 'POST',
@@ -27,8 +27,8 @@ out center ${limit};`;
 
   return data.elements
     .map((element: any) => {
-      const lat = element.type === 'node' ? element.lat : element.center?.lat;
-      const lng = element.type === 'node' ? element.lon : element.center?.lon;
+      const lat = element.lat ?? element.center?.lat;
+      const lng = element.lon ?? element.center?.lon;
 
       if (!lat || !lng) {
         return null;
@@ -37,6 +37,8 @@ out center ${limit};`;
       const addressParts = [
         element.tags?.['addr:street'],
         element.tags?.['addr:housenumber'],
+        element.tags?.['addr:place'],
+        element.tags?.['addr:suburb'],
         element.tags?.['addr:city'],
         element.tags?.['addr:state'],
       ].filter(Boolean);
@@ -50,5 +52,6 @@ out center ${limit};`;
         openNow: false,
       } as PoliceStation;
     })
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(0, limit);
 }

@@ -1,4 +1,9 @@
 import { GeoPosition, PoliceStation } from '../types';
+import { POLICE_STATIONS } from '../constants/policeStations';
+import { buildStationsWithDistance } from './geoUtils';
+
+const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter';
+const CORS_PROXY = 'https://corsproxy.io/?';
 
 export async function fetchNearbyPoliceStations(
   position: GeoPosition,
@@ -13,52 +18,71 @@ export async function fetchNearbyPoliceStations(
 );
 out center;`;
 
-  const maxRetries = 3;
-  let lastError: Error;
+  try {
+    console.log(`🔍 Consultando API Overpass: ${position.lat.toFixed(4)}, ${position.lng.toFixed(4)} (raio: ${radius}m)`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      console.log(`🔍 Tentativa ${attempt}/${maxRetries} - Consultando API Overpass: ${position.lat.toFixed(4)}, ${position.lng.toFixed(4)} (raio: ${radius}m)`);
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos
+    const response = await fetch(`${CORS_PROXY}${encodeURIComponent(OVERPASS_ENDPOINT)}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain',
+      },
+      body: query,
+      signal: controller.signal,
+    });
 
-      const response = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain',
-          'User-Agent': 'SereneSentinel/1.0'
-        },
-        body: query,
-        signal: controller.signal,
-      });
+    clearTimeout(timeoutId);
 
-  return data.elements
-    .map((element: any) => {
-      const lat = element.lat ?? element.center?.lat;
-      const lng = element.lon ?? element.center?.lon;
+    if (!response.ok) {
+      throw new Error(`Erro na API Overpass: ${response.status} ${response.statusText}`);
+    }
 
-      if (!response.ok) {
-        throw new Error(`Erro na API: ${response.status} ${response.statusText}`);
-      }
+    const data = await response.json();
 
-      const addressParts = [
-        element.tags?.['addr:street'],
-        element.tags?.['addr:housenumber'],
-        element.tags?.['addr:place'],
-        element.tags?.['addr:suburb'],
-        element.tags?.['addr:city'],
-        element.tags?.['addr:state'],
-      ].filter(Boolean);
+    const stations = data.elements
+      .map((element: any) => {
+        const lat = element.lat ?? element.center?.lat;
+        const lng = element.lon ?? element.center?.lon;
 
-      return {
-        id: `${element.type}-${element.id}`,
-        name: element.tags?.name || 'Delegacia de Polícia',
-        address: addressParts.length > 0 ? addressParts.join(', ') : element.tags?.name || 'Endereço não disponível',
-        lat,
-        lng,
-        openNow: false,
-      } as PoliceStation;
-    })
-    .filter(Boolean)
-    .slice(0, limit);
+        if (lat == null || lng == null) {
+          return null;
+        }
+
+        const addressParts = [
+          element.tags?.['addr:street'],
+          element.tags?.['addr:housenumber'],
+          element.tags?.['addr:place'],
+          element.tags?.['addr:suburb'],
+          element.tags?.['addr:city'],
+          element.tags?.['addr:state'],
+        ].filter(Boolean);
+
+        return {
+          id: `${element.type}-${element.id}`,
+          name: element.tags?.name || 'Delegacia de Polícia',
+          address:
+            addressParts.length > 0
+              ? addressParts.join(', ')
+              : element.tags?.name || 'Endereço não disponível',
+          lat,
+          lng,
+          openNow: false,
+        } as PoliceStation;
+      })
+      .filter(Boolean)
+      .slice(0, limit);
+
+    if (stations.length > 0) {
+      return stations;
+    }
+
+    throw new Error('Nenhum resultado retornado pelo Overpass.');
+  } catch (error) {
+    console.warn('Overpass falhou ou não permite CORS. Usando dados locais como fallback.', error);
+    return buildStationsWithDistance(position, POLICE_STATIONS)
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .slice(0, limit)
+      .map(({ distanceKm, ...station }) => station);
+  }
 }

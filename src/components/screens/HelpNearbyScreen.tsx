@@ -9,6 +9,7 @@ import { fetchNearbyPoliceStations } from '../../lib/policeSearch';
 type StationWithDistance = PoliceStation & { distanceKm: number };
 
 type HelpNearbyScreenProps = {
+  stations: StationWithDistance[];
   locationStatus: string;
   userPosition: { lat: number; lng: number } | null;
   onRefresh: () => void;
@@ -60,7 +61,7 @@ export default function HelpNearbyScreen({ stations, locationStatus, userPositio
       });
   }, [userPosition, stations]);
 
-  const nearby = nearbyStations.filter(station => station.distanceKm <= 7);
+  const nearby = nearbyStations.filter((station: StationWithDistance) => station.distanceKm <= 7);
   const displayStations = nearby.length > 0 ? nearby : nearbyStations.slice(0, 3);
   const headerText = userPosition
     ? nearby.length > 0
@@ -129,7 +130,7 @@ export default function HelpNearbyScreen({ stations, locationStatus, userPositio
               <div className="w-4 h-4 border-2 border-violet-600 border-t-transparent rounded-full animate-spin"></div>
               <span>Buscando delegacias próximas...</span>
             </div>
-            <p className="text-sm">Usando dados da API Overpass para localização precisa</p>
+            <p className="text-sm">Buscando informações locais seguras para sua região</p>
           </div>
         ) : stationsError ? (
           <div className="bg-white p-5 rounded-3xl border border-slate-100 text-red-600 text-center">
@@ -147,7 +148,7 @@ export default function HelpNearbyScreen({ stations, locationStatus, userPositio
                 ({nearbyStations.length} encontrada{nearbyStations.length !== 1 ? 's' : ''})
               </span>
             </div>
-            {displayStations.map(station => (
+            {displayStations.map((station: StationWithDistance) => (
               <div key={station.id} className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
                 <div className="flex justify-between items-start mb-4 gap-3">
                   <div className="flex gap-3">

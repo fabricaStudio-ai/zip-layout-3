@@ -1,5 +1,10 @@
 import { PoliceStation } from '../types';
 
+export const DEFAULT_LOCATION = {
+  lat: -23.5505,
+  lng: -46.6333,
+};
+
 export const POLICE_STATIONS: PoliceStation[] = [
   {
     id: 'dp-campo-belo',

@@ -11,6 +11,8 @@ import { useTripleTap } from './hooks/useTripleTap';
 import { useKeyboardShortcut } from './hooks/useKeyboardShortcut';
 import { usePrivacySettings } from './hooks/usePrivacySettings';
 import { ScreenState } from './types';
+import { buildStationsWithDistance } from './lib/geoUtils';
+import { DEFAULT_LOCATION, POLICE_STATIONS } from './constants/policeStations';
 import ActiveEventScreen from './components/screens/ActiveEventScreen';
 import AuthScreen from './components/screens/AuthScreen';
 import ContactScreen from './components/screens/ContactScreen';
@@ -42,6 +44,8 @@ export default function App() {
   const { userPosition, locationStatus, gpsAvailable, refreshLocation } = useGeolocation();
   const { isRecording, recordingTime, recordedAudio, startRecording, stopRecording, resetRecording, formatTime } = useAudioRecording();
   const { recordings, saveRecording, deleteRecording, deleteAllRecordings } = useStoredRecordings();
+
+  const defaultNearbyStations = buildStationsWithDistance(userPosition ?? DEFAULT_LOCATION, POLICE_STATIONS).slice(0, 3);
 
   const recordingSavedRef = useRef(false);
   const { settings: privacySettings, loading: privacyLoading, updateSettings: updatePrivacySettings } = usePrivacySettings();
@@ -251,6 +255,7 @@ export default function App() {
 
         {currentScreen === 'HELP_NEARBY' && (
           <HelpNearbyScreen
+            stations={defaultNearbyStations}
             locationStatus={locationStatus}
             userPosition={userPosition}
             onRefresh={refreshLocation}

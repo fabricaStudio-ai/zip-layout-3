@@ -18,7 +18,7 @@ type ActiveEventScreenProps = {
 
 export default function ActiveEventScreen({ onAction, decision, contacts, userPosition, isRecording, recordingTime, formatTime, onStopRecording }: ActiveEventScreenProps) {
   const primaryContact = contacts.find(contact => contact.emergency) ?? (contacts.length ? contacts[0] : null);
-
+  const mapLocation = userPosition ?? DEFAULT_LOCATION;
   const isFallbackLocation = !userPosition;
 
   const openWhatsApp = () => {
